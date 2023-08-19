@@ -1,0 +1,22 @@
+{% extends 'chat/base/base.html' %}
+{% load static %}
+
+{% block content %}
+    <div class="col-auto col-12 col-lg-5 col-xl-4 col-xxl-3 vh-100 d-flex flex-column ms-auto">
+        <div id="chat" class="border border-3 border-secondary h-100 m-2 bg-secondary-subtle d-flex flex-column overflow-y-scroll" style="border-radius: 10px;">
+
+        </div>
+        <div id="chat-input" class="d-flex flex-row">
+            <input type="text" id="chat-message-input" class="w-75 m-2">
+            <input type="submit" id="chat-message-submit" class="w-25 m-2" value="Send">
+        </div>
+    </div>
+{% endblock %}
+
+
+{% block additional_java_script %}
+{{ chat_owner_slug|json_script:"chat-owner-slug" }}
+{{ request.user.username|json_script:"username" }}
+<script src="{% static 'JS/websocket_messaging.js' %}"></script>
+<script src="{% static 'JS/chat_menu.js' %}"></script>
+{% endblock %}

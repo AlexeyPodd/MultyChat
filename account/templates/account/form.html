@@ -1,0 +1,49 @@
+{% extends 'chat/base/base.html' %}
+{% load additional_tags %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center vh-100">
+    <div class="col-12 col-md-9 col-lg-7 col-xl-6">
+        <div class="card" style="border-radius: 15px;">
+            <div class="card-body p-5">
+                <h2 class="text-center mb-5">{{title}}</h2>
+                <form method="post">
+                    {% csrf_token %}
+
+                    <!--Errors-->
+                    <div class="text-danger text-center">
+                        {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+
+                    <!--Fields-->
+                    {% for field in form %}
+                        <div class="form-floating mb-4{% if field.errors %} is-invalid{% endif %}">
+                            {% if field.errors %}
+                                {{ field|add_attrs:"is-invalid" }}
+                            {% else %}
+                                {{ field }}
+                            {% endif %}
+                            <label for="{{ field.id_for_label }}">{{field.label}}</label>
+                            {% if field.errors %}
+                            <div class="invalid-feedback">
+                                {% for err in field.errors %}
+                                <p>{{ err }}</p>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+
+                    <!--Submit button-->
+                    <div class="d-flex justify-content-center mt-3">
+                        <button class="btn btn-primary btn-lg w-50" type="submit">{{ button_label }}</button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

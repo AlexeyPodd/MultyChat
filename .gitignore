@@ -1,0 +1,12 @@
+*.log
+*.pot
+*.pyc
+__pycache__
+db.sqlite3
+media
+
+*.py[cod]
+*$py.class
+.python-version
+
+credential.txt
