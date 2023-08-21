@@ -10,3 +10,4 @@ media
 .python-version
 
 credential.txt
+.env

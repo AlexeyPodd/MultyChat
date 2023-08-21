@@ -9,8 +9,12 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+
+load_dotenv()  # take environment variables from .env.
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-=76fpm8^j7$lmhho#b_6+1+f5q^4-dhs&@11)@&#l_th+1ze!6'
+SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -136,16 +140,12 @@ CHANNEL_LAYERS = {
     }
 }
 
+LOGIN_URL = 'account:login'
+
 REDIS_HOST = 'localhost'
 REDIS_PORT = 6379
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}",
-    }
-}
-
 LENGTH_OF_CHAT_LOG = 20
 CHAT_AUTO_DELETE_DELAY = 60 * 60 * 24
-CHAT_LOGGING_DATA_TYPES = "author_usernames", "author_slugs", "messages"
+CHAT_LOGGING_DATA_TYPES = "author_username", "author_slug", "message"
+CHAT_LOGGING_DATA_TYPES_PLURAL = "author_usernames", "author_slugs", "messages"
