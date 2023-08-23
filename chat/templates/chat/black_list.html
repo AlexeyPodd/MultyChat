@@ -1,0 +1,18 @@
+{% extends 'chat/base/base.html' %}
+
+{% block content %}
+<div class="d-flex flex-column col-12 col-lg-9 col-xxl-6">
+    {% if black_listed_users %}
+    <div class="p-2">
+        {% for user in black_listed_users %}
+        <div class="row">
+            <div class="col-6">{{ user.username }}</div>
+            <div class="col-6"><button type="button" class="btn btn-warning" data-user-slug="{{ user.username_slug }}">Exclude from Black List</button></div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="m-5 text-center h3 text-secondary">Black List is empty</p>
+    {% endif %}
+</div>
+{% endblock %}

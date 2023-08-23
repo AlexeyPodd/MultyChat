@@ -1,6 +1,8 @@
 const chatOwnerSlug = JSON.parse(document.getElementById('chat-owner-slug').textContent);
 const userUsername = JSON.parse(document.getElementById('username').textContent);
 const userUsernameSlug = JSON.parse(document.getElementById('username-slug').textContent);
+const moderSlugs = JSON.parse(document.getElementById('moder-slugs').textContent);
+const userHasAdminPrivileges = JSON.parse(document.getElementById('admin-privileges-granted').textContent);
 let chatIsOpen = JSON.parse(document.getElementById('chat-is-open').textContent);
 const url = `ws://${window.location.host}/ws/room/${chatOwnerSlug}/`;
 const chatSocket = new WebSocket(url);
@@ -10,6 +12,8 @@ const chatBlock = document.getElementById('chat');
 const sendMessageButton = document.querySelector('#chat-message-submit');
 const chatManagamentButton = document.getElementById('btn-chat-management');
 
+
+document.addEventListener("DOMContentLoaded", scrollChatToBottom);
 
 messageInputBlock.onkeydown = function(e) {
 	if(e.keyCode == 13) sendMassegeToServer();
@@ -41,7 +45,7 @@ chatSocket.onmessage = function(e) {
 
 	// scrolling, if chat was scrolled all way down
 	if(chatBlock.scrollTop >= chatBlock.scrollHeight - chatBlock.clientHeight - messageDiv.scrollHeight * 2) {
-		chatBlock.scrollTop = chatBlock.scrollHeight - chatBlock.clientHeight;
+		scrollChatToBottom();
 	}
 }
 
@@ -62,8 +66,9 @@ function handleSystemCommand(data) {
 function addUserMessage(data) {
 	const messageAuthor = document.createElement('span');
 	messageAuthor.textContent = data.senderUsername+":";
-	messageAuthor.className = ('fw-bold pe-2');
+	messageAuthor.className = ('fw-bold me-1 px-1 message-author');
 	messageAuthor.setAttribute("data-sender-slug", data.senderUsernameSlug);
+	messageAuthor.addEventListener("contextmenu", showChatContextMenu);
 
 	const messageText = document.createTextNode(data.message);
 
@@ -136,4 +141,8 @@ function executeCommandBanChat() {
 			chatManagamentButton.textContent = 'Open Chat';
 		}
 	}
+}
+
+function scrollChatToBottom(e) {
+	chatBlock.scrollTop = chatBlock.scrollHeight - chatBlock.clientHeight;
 }

@@ -1,0 +1,30 @@
+.message-author {
+    border-radius: 3px;
+}
+
+.message-author:hover {
+    background: #909090;
+    transition: .1s;
+    cursor: default;
+}
+
+#chat-user-dropdown-menu {
+    position: fixed;
+    z-index: 9999;
+    width: 150px;
+    background: #535353;
+    border-radius: 3px;
+    cursor: default;
+}
+
+#chat-user-dropdown-menu .menu-item {
+    padding: 4px 5px;
+    font-size: 14px;
+    color: #eee;
+    border-radius: inherit;
+}
+
+#chat-user-dropdown-menu .menu-item:hover {
+    background: #747474;
+    transition: .1s;
+}
