@@ -21,7 +21,7 @@ messageInputBlock.onkeydown = function(e) {
 sendMessageButton.onclick = sendMassegeToServer;
 
 if (chatManagamentButton) {
-	chatManagamentButton.onclick = sendManagementMessageToServer;
+	chatManagamentButton.onclick = sendChatManagementMessageToServer;
 }
 
 
@@ -60,6 +60,9 @@ function handleSystemCommand(data) {
 		case 'ban_chat':
 			executeCommandBanChat();
 			break;
+		case 'add_user_to_black_list':
+			executeCommandAddUserToBlackList(data.usernameSlug);
+			break;
 	}
 }
 
@@ -92,6 +95,9 @@ function addSystemMessage(data) {
 	return messageDiv;
 }
 
+function scrollChatToBottom(e) {
+	chatBlock.scrollTop = chatBlock.scrollHeight - chatBlock.clientHeight;
+}
 
 // sending message function
 function sendMassegeToServer(e) {
@@ -105,9 +111,19 @@ function sendMassegeToServer(e) {
 	messageInputBlock.focus();
 }
 
-function sendManagementMessageToServer(e) {
-	command = e.currentTarget.dataset.command;
-	chatSocket.send(JSON.stringify({command, messageType: 'management'}));
+function sendChatManagementMessageToServer(e) {
+	sendCommandToServer(e.currentTarget.dataset.command);
+}
+
+function sendCommandToServer(command, commandData=null) {
+	sendData = {command, messageType: 'management'}
+	if (commandData) {
+		for (let key in commandData) {
+			sendData[key] = commandData[key]
+		}
+	}
+
+	chatSocket.send(JSON.stringify(sendData));
 }
 
 function executeCommandOpenChat() {
@@ -143,6 +159,40 @@ function executeCommandBanChat() {
 	}
 }
 
-function scrollChatToBottom(e) {
-	chatBlock.scrollTop = chatBlock.scrollHeight - chatBlock.clientHeight;
+function executeCommandAddUserToBlackList(usernameSlug) {
+	deleteAllSpecificUserMessagesFromChat(usernameSlug);
+}
+
+function addUserToBlackListListener(event) {
+	sendCommandToServer(
+		'add_user_to_black_list',
+		{'username_slug': event.currentTarget.parentElement.getAttribute('data-sender-slug')},
+	);
+	event.currentTarget.parentElement.remove();
+}
+
+function initiatePrivateMessageListener(event) {
+	console.log('initiatePrivateMessage');
+}
+
+function demoteModeratorListener(event) {
+	console.log('demoteModerator');
+}
+
+function appointModeratorListener(event) {
+	console.log('appointModerator');
+}
+
+function expandBanMenuListener(event) {
+	console.log('expandBanMenu');
+}
+
+function deleteAllSpecificUserMessagesFromChat(usernameSlug) {
+	let messageDiv = null;
+	for (let i=chatBlock.children.length-1; i>=0; --i) {
+		messageDiv = chatBlock.children[i]
+		if (messageDiv.firstElementChild.getAttribute("data-sender-slug") == usernameSlug) {
+			messageDiv.remove();
+		}
+	}
 }

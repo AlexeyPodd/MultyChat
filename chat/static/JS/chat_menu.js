@@ -16,33 +16,44 @@ function showChatContextMenu(event) {
 	const contextMenu = createUserContextMenu(event.currentTarget.getAttribute('data-sender-slug'));
 
 	document.body.append(contextMenu);
+
 	contextMenu.style.left = event.clientX+"px";
-	contextMenu.style.top = event.clientY+"px";
+	if (event.clientY + contextMenu.offsetHeight > document.documentElement.clientHeight) {
+		contextMenu.style.top = event.clientY-contextMenu.offsetHeight+"px";
+	}
+	else {
+		contextMenu.style.top = event.clientY+"px";
+	}
 }
 
 function createUserContextMenu(senderSlug) {
 	menuDiv = document.createElement('div');
 	menuDiv.id = 'chat-user-dropdown-menu';
+	menuDiv.setAttribute('data-sender-slug', senderSlug);
 
 	if (senderSlug != userUsernameSlug) {
 
-		// Black list and private messages items
-		menuDiv.append(createContextMenuItem('add to black list', addUserToPrivateListListener));
-		menuDiv.append(createContextMenuItem('write private message', initiatePrivateMessageListener));
+		// Black list item
+		menuDiv.append(createContextMenuItem('Add to Black List', addUserToBlackListListener));
+
+		// Private messages item
+		if (chatIsOpen) {
+			menuDiv.append(createContextMenuItem('Write Private Message', initiatePrivateMessageListener));
+		}
 
 		// Moderators management items
 		if (userUsernameSlug == chatOwnerSlug) {
 			if (moderSlugs.includes(senderSlug)) {
-				menuDiv.append(createContextMenuItem('demote moderator', demoteModeratorListener));
+				menuDiv.append(createContextMenuItem('Demote Moderator', demoteModeratorListener));
 			}
 			else {
-				menuDiv.append(createContextMenuItem('appoint moderator', appointModeratorListener));
+				menuDiv.append(createContextMenuItem('Appoint Moderator', appointModeratorListener));
 			}
 		}
 
 		// Ban management items
 		if (moderSlugs.includes(senderSlug) || userUsernameSlug == chatOwnerSlug || userHasAdminPrivileges) {
-			menuDiv.append(createContextMenuItem('ban user', expandBanMenuListener));
+			menuDiv.append(createContextMenuItem('Ban User', expandBanMenuListener));
 		}
 	}
 
@@ -58,24 +69,4 @@ function createContextMenuItem(label, action) {
 	menuItem.textContent = label;
 	menuItem.addEventListener('click', action);
 	return menuItem;
-}
-
-function addUserToPrivateListListener(event) {
-	console.log('addUserToPrivateList');
-}
-
-function initiatePrivateMessageListener(event) {
-	console.log('initiatePrivateMessage');
-}
-
-function demoteModeratorListener(event) {
-	console.log('demoteModerator');
-}
-
-function appointModeratorListener(event) {
-	console.log('appointModerator');
-}
-
-function expandBanMenuListener(event) {
-	console.log('expandBanMenu');
 }

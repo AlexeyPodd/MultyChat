@@ -14,6 +14,7 @@
         {% endif %}
         <div id="chat" class="border border-3 border-secondary h-100 m-2 bg-secondary-subtle d-flex flex-column overflow-y-scroll" style="border-radius: 10px;">
             {% for message in last_messages %}
+            {% if not message.author_slug or message.author_slug not in black_list_slugs %}
                 {% if message.author_slug %}
                 <div class="pt-2 px-3">
                     <span class="fw-bold me-1 px-1 message-author" data-sender-slug="{{ message.author_slug }}">{{ message.author_username }}:</span>{{ message.message }}
@@ -23,6 +24,7 @@
                     <span class="badge bg-danger">{{ message.message }}</span>
                 </div>
                 {% endif %}
+            {% endif %}
             {% endfor %}
         </div>
         <div id="chat-input" class="d-flex flex-row">
@@ -34,7 +36,6 @@
 
 
 {% block additional_java_script %}
-{% csrf_token %}
 {{ chat_owner.username_slug|json_script:"chat-owner-slug" }}
 {{ request.user.username|json_script:"username" }}
 {{ request.user.username_slug|json_script:"username-slug" }}
