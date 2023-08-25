@@ -14,10 +14,10 @@
         {% endif %}
         <div id="chat" class="border border-3 border-secondary h-100 m-2 bg-secondary-subtle d-flex flex-column overflow-y-scroll" style="border-radius: 10px;">
             {% for message in last_messages %}
-            {% if not message.author_slug or message.author_slug not in black_list_slugs %}
-                {% if message.author_slug %}
+            {% if not message.author_username or message.author_username not in black_list_usernames %}
+                {% if message.author_username %}
                 <div class="pt-2 px-3">
-                    <span class="fw-bold me-1 px-1 message-author" data-sender-slug="{{ message.author_slug }}">{{ message.author_username }}:</span>{{ message.message }}
+                    <span class="fw-bold me-1 px-1 message-author" data-sender-username="{{ message.author_username }}">{{ message.author_username }}:</span>{{ message.message }}
                 </div>
                 {% else %}
                 <div class="p-3 text-center">
@@ -37,10 +37,10 @@
 
 {% block additional_java_script %}
 {{ chat_owner.username_slug|json_script:"chat-owner-slug" }}
+{{ chat_owner.username|json_script:"chat-owner-username" }}
 {{ request.user.username|json_script:"username" }}
-{{ request.user.username_slug|json_script:"username-slug" }}
 {{ chat_owner.is_running_chat|json_script:"chat-is-open" }}
-{{ moder_slug_list|json_script:"moder-slugs" }}
+{{ moder_username_list|json_script:"moder-usernames" }}
 {{ chat_owner.is_staff|json_script:"admin-privileges-granted" }}
 <script src="{% static 'JS/websocket_messaging.js' %}"></script>
 <script src="{% static 'JS/chat_menu.js' %}"></script>

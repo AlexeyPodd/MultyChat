@@ -7,7 +7,7 @@ from multychats.settings import REDIS_HOST, REDIS_PORT, LENGTH_OF_CHAT_LOG, CHAT
 
 """
 Logging messages and its data will save in redis using keys, specified in CHAT_LOGGING_DATA_TYPES.
-Full keys will have pattern chat__{chat_owner_slug}__{data_type}.
+Full keys will have pattern chat__{chat_owner_username}__{data_type}.
 Always will be logged maximum number of last messages, specified in LENGTH_OF_CHAT_LOG.
 """
 
@@ -23,19 +23,19 @@ MessageData = TypedDict('MessageData', {data_type: str for data_type in CHAT_LOG
 
 class RedisChatLogInterface:
     @staticmethod
-    def log_chat_message(chat_owner_slug: str, author_username: str, author_slug: str, message: str) -> None:
-        log_data = [author_username, author_slug, message]
+    def log_chat_message(chat_owner_username: str, author_username: str, message: str) -> None:
+        log_data = [author_username, message]
 
         for log_type, log_data in zip(CHAT_LOGGING_DATA_TYPES_PLURAL, log_data):
-            redis_instance.rpush(f"chat__{chat_owner_slug}__{log_type}", log_data)
+            redis_instance.rpush(f"chat__{chat_owner_username}__{log_type}", log_data)
 
-            chat_length = redis_instance.llen(f"chat__{chat_owner_slug}__{log_type}")
+            chat_length = redis_instance.llen(f"chat__{chat_owner_username}__{log_type}")
             trim_index = 0 if chat_length < LENGTH_OF_CHAT_LOG else chat_length - LENGTH_OF_CHAT_LOG
-            redis_instance.ltrim(f"chat__{chat_owner_slug}__{log_type}", trim_index, -1)
+            redis_instance.ltrim(f"chat__{chat_owner_username}__{log_type}", trim_index, -1)
 
     @staticmethod
-    def get_chat_log_data(chat_owner_slug: str) -> List[MessageData]:
-        log_data = [redis_instance.lrange(f"chat__{chat_owner_slug}__{data_type}", 0, -1)
+    def get_chat_log_data(chat_owner_username: str) -> List[MessageData]:
+        log_data = [redis_instance.lrange(f"chat__{chat_owner_username}__{data_type}", 0, -1)
                     for data_type in CHAT_LOGGING_DATA_TYPES_PLURAL]
         return [{data_type: data[i] for i, data_type in enumerate(CHAT_LOGGING_DATA_TYPES)} for data in zip(*log_data)]
 
@@ -43,12 +43,12 @@ class RedisChatLogInterface:
 class RedisChatStatusInterface:
     @staticmethod
     def update_chat_state(owner: User) -> None:
-        redis_instance.set(f"chat__{owner.username_slug}__is_running_chat", int(owner.is_running_chat))
-        redis_instance.expire(f"chat__{owner.username_slug}__is_running_chat", CHAT_AUTO_DELETE_DELAY)
+        redis_instance.set(f"chat__{owner.username}__is_running_chat", int(owner.is_running_chat))
+        redis_instance.expire(f"chat__{owner.username}__is_running_chat", CHAT_AUTO_DELETE_DELAY)
 
     @staticmethod
-    def check_is_chat_open(owner_username_slug: str) -> [bool, None]:
+    def check_is_chat_open(owner_username: str) -> [bool, None]:
         try:
-            return bool(int(redis_instance.get(f"chat__{owner_username_slug}__is_running_chat")))
+            return bool(int(redis_instance.get(f"chat__{owner_username}__is_running_chat")))
         except TypeError:
             return None

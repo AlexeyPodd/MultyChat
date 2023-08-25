@@ -1,10 +1,12 @@
 import json
+import re
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from django.core.exceptions import ObjectDoesNotExist
 
 from account.models import User
+from multychats.settings import PRIVATE_MESSAGE_REGEX
 from . import cache_manager
 from chat.redis_interface import RedisChatLogInterface, RedisChatStatusInterface
 
@@ -15,10 +17,12 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
 
-        self.chat_owner_slug = self.scope['url_route']['kwargs']['chat_owner_slug']
-        self.room_group_name = f'chat_{self.chat_owner_slug}'
-        self._black_list_slugs = await database_sync_to_async(list)(self.scope['user'].black_listed_users.
-                                                                    values_list('username_slug', flat=True))
+        chat_owner_slug = self.scope['url_route']['kwargs']['chat_owner_slug']
+        chat_owner = await User.objects.aget(username_slug=chat_owner_slug)
+        self.chat_owner_username = chat_owner.username
+        self.room_group_name = f'chat_{self.chat_owner_username}'
+        self._black_list_usernames = await database_sync_to_async(list)(self.scope['user'].black_listed_users.
+                                                                        values_list('username', flat=True))
 
         await self.channel_layer.group_add(
             self.room_group_name,
@@ -43,38 +47,49 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
     async def _handle_chat_message(self, text_data_json):
         message = text_data_json.get('message')
         sender_username = text_data_json.get('userUsername')
-        sender_slug = text_data_json.get('userUsernameSlug')
 
-        if not await cache_manager.get_or_set_from_db_chat_open_status(self.chat_owner_slug):
+        if not await cache_manager.get_or_set_from_db_chat_open_status(self.chat_owner_username):
             return
 
         if not message or not sender_username:
             return
 
-        RedisChatLogInterface.log_chat_message(chat_owner_slug=self.chat_owner_slug,
+        # Is this is private message
+        private_message_match = re.fullmatch(PRIVATE_MESSAGE_REGEX, message)
+        if private_message_match:
+            message_data = private_message_match.groupdict()
+            message = message_data['message'].strip()
+            recipient_username = message_data['recipient_username']
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {'type': 'private_message',
+                 'message': message,
+                 'recipient_username': recipient_username,
+                 "sender_username": sender_username},
+            )
+            return
+
+        RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
                                                author_username=sender_username,
-                                               author_slug=sender_slug,
                                                message=message)
 
         await self.channel_layer.group_send(
             self.room_group_name,
             {'type': 'chatroom_message',
              'message': message,
-             "sender_username": sender_username,
-             "sender_slug": sender_slug},
+             "sender_username": sender_username},
         )
 
     async def chatroom_message(self, event):
         message = event['message']
         sender_username = event['sender_username']
-        sender_slug = event['sender_slug']
 
-        if sender_slug in self._black_list_slugs:
+        if sender_username in self._black_list_usernames:
             return
 
         await self.send(text_data=json.dumps({'message': message,
                                               'senderUsername': sender_username,
-                                              'senderUsernameSlug': sender_slug,
                                               'messageType': 'chatroom_message'}))
 
     async def system_message(self, event):
@@ -82,16 +97,28 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
                                               'command': event['command'],
                                               'messageType': 'system_message'}))
 
+    async def private_message(self, event):
+        message = event['message']
+        sender_username = event['sender_username']
+        recipient_username = event['recipient_username']
+
+        if ((recipient_username == self.scope['user'].username or sender_username == self.scope['user'].username)
+                and sender_username not in self._black_list_usernames):
+            await self.send(text_data=json.dumps({'message': message,
+                                                  'recipientUsername': recipient_username,
+                                                  'senderUsername': sender_username,
+                                                  'messageType': 'private_message'}))
+
     async def _handle_management_message(self, text_data_json):
         command = text_data_json.get('command')
 
         match command:
             case "open_chat":
-                if (not await cache_manager.get_or_set_from_db_chat_open_status(self.chat_owner_slug)
+                if (not await cache_manager.get_or_set_from_db_chat_open_status(self.chat_owner_username)
                         and self.scope['user'].allowed_run_chat):
                     await self._set_chat_open_status(True)
             case "close_chat":
-                if await cache_manager.get_or_set_from_db_chat_open_status(self.chat_owner_slug):
+                if await cache_manager.get_or_set_from_db_chat_open_status(self.chat_owner_username):
                     await self._set_chat_open_status(False)
             case "ban_chat":
                 await self._ban_chat()
@@ -110,9 +137,8 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         action = "opened" if is_open else "closed"
         message = f"{chat_owner.username} {action} chat"
 
-        RedisChatLogInterface.log_chat_message(chat_owner_slug=self.chat_owner_slug,
+        RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
                                                author_username='',
-                                               author_slug='',
                                                message=message)
 
         await self.channel_layer.group_send(
@@ -128,7 +154,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
             return
 
         try:
-            chat_owner = await User.objects.aget(username_slug=self.chat_owner_slug)
+            chat_owner = await User.objects.aget(username=self.chat_owner_username)
         except ObjectDoesNotExist:
             return
 
@@ -141,9 +167,8 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         # Sending system message to chat
         message = f"{chat_owner.username} is banned by {self.scope['user'].username}. Chat is closed."
 
-        RedisChatLogInterface.log_chat_message(chat_owner_slug=self.chat_owner_slug,
+        RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
                                                author_username='',
-                                               author_slug='',
                                                message=message)
 
         await self.channel_layer.group_send(
@@ -154,19 +179,19 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         )
 
     async def _add_user_to_black_list(self, text_data_json):
-        username_slug = text_data_json.get('username_slug')
+        username = text_data_json.get('username')
 
-        if not username_slug or username_slug in self._black_list_slugs:
+        if not username or username in self._black_list_usernames:
             return
 
         try:
-            black_listed_user = await User.objects.aget(username_slug=username_slug)
+            black_listed_user = await User.objects.aget(username=username)
         except ObjectDoesNotExist:
             return
 
         await self.scope['user'].black_listed_users.aadd(black_listed_user)
-        self._black_list_slugs.append(username_slug)
+        self._black_list_usernames.append(username)
 
         await self.send(text_data=json.dumps({'command': 'add_user_to_black_list',
-                                              'usernameSlug': username_slug,
+                                              'userUsername': username,
                                               'messageType': 'system_message'}))

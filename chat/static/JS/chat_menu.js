@@ -13,7 +13,7 @@ window.addEventListener('mousedown', (event) => {
 function showChatContextMenu(event) {
 	event.preventDefault();
 
-	const contextMenu = createUserContextMenu(event.currentTarget.getAttribute('data-sender-slug'));
+	const contextMenu = createUserContextMenu(event.currentTarget.getAttribute('data-sender-username'));
 
 	document.body.append(contextMenu);
 
@@ -26,24 +26,24 @@ function showChatContextMenu(event) {
 	}
 }
 
-function createUserContextMenu(senderSlug) {
+function createUserContextMenu(senderUsername) {
 	menuDiv = document.createElement('div');
 	menuDiv.id = 'chat-user-dropdown-menu';
-	menuDiv.setAttribute('data-sender-slug', senderSlug);
+	menuDiv.setAttribute('data-sender-username', senderUsername);
 
-	if (senderSlug != userUsernameSlug) {
-
-		// Black list item
-		menuDiv.append(createContextMenuItem('Add to Black List', addUserToBlackListListener));
+	if (senderUsername != userUsername) {
 
 		// Private messages item
 		if (chatIsOpen) {
 			menuDiv.append(createContextMenuItem('Write Private Message', initiatePrivateMessageListener));
 		}
+		
+		// Black list item
+		menuDiv.append(createContextMenuItem('Add to Black List', addUserToBlackListListener));
 
 		// Moderators management items
-		if (userUsernameSlug == chatOwnerSlug) {
-			if (moderSlugs.includes(senderSlug)) {
+		if (userUsername == chatOwnerUsername) {
+			if (moderUsernames.includes(senderUsername)) {
 				menuDiv.append(createContextMenuItem('Demote Moderator', demoteModeratorListener));
 			}
 			else {
@@ -52,7 +52,7 @@ function createUserContextMenu(senderSlug) {
 		}
 
 		// Ban management items
-		if (moderSlugs.includes(senderSlug) || userUsernameSlug == chatOwnerSlug || userHasAdminPrivileges) {
+		if (moderUsernames.includes(senderUsername) || userUsername == chatOwnerUsername || userHasAdminPrivileges) {
 			menuDiv.append(createContextMenuItem('Ban User', expandBanMenuListener));
 		}
 	}

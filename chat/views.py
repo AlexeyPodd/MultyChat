@@ -17,24 +17,25 @@ class HomeView(ListView):
 
 @login_required
 def chat_room_view(request, chat_owner_slug):
-    chat_owner = get_object_or_404(User.objects.prefetch_related('moderators'), username_slug=chat_owner_slug)
-    moder_slug_list = list(chat_owner.moderators.values_list('username_slug', flat=True))
-    black_list_slugs = request.user.black_listed_users.values_list('username_slug', flat=True)
+    chat_owner = get_object_or_404(User.objects.prefetch_related('moderators', 'black_listed_users'),
+                                   username_slug=chat_owner_slug)
+    moder_username_list = list(chat_owner.moderators.values_list('username', flat=True))
+    black_list_usernames = request.user.black_listed_users.values_list('username', flat=True)
 
     return render(request,
                   'chat/room.html',
-                  {'title': f"Chat - {chat_owner_slug}",
+                  {'title': f"Chat - {chat_owner.username}",
                    'chat_owner': chat_owner,
-                   'moder_slug_list': moder_slug_list,
-                   'black_list_slugs': black_list_slugs,
-                   'last_messages': RedisChatLogInterface.get_chat_log_data(chat_owner_slug)})
+                   'moder_username_list': moder_username_list,
+                   'black_list_usernames': black_list_usernames,
+                   'last_messages': RedisChatLogInterface.get_chat_log_data(chat_owner.username)})
 
 
 @login_required
 def black_list_view(request):
     if request.method == 'POST':
         try:
-            unbanned_user = User.objects.get(username_slug=request.POST.get('username_slug'))
+            unbanned_user = User.objects.get(username=request.POST.get('username'))
         except ObjectDoesNotExist:
             raise Http404
         request.user.black_listed_users.remove(unbanned_user)

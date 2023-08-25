@@ -8,16 +8,16 @@ document.querySelectorAll('.unban-btn').forEach((element) => {
 function sendPOSTUnbanUser(event) {
 	event.preventDefault();
 
-	const userSlug = event.currentTarget.dataset.userSlug;
+	const userUsername = event.currentTarget.dataset.userUsername;
 
 	const form = document.createElement('form');
 	form.method = 'POST';
 	form.append(csrfToken.cloneNode());
 
-	const userSlugInput = document.createElement('input');
-	userSlugInput.name = 'username_slug';
-	userSlugInput.value = userSlug;
-	form.append(userSlugInput);
+	const userUsernameInput = document.createElement('input');
+	userUsernameInput.name = 'username';
+	userUsernameInput.value = userUsername;
+	form.append(userUsernameInput);
 
 	document.body.append(form);
 	form.submit();

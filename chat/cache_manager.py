@@ -5,15 +5,15 @@ from account.models import User
 from .redis_interface import RedisChatStatusInterface
 
 
-async def get_or_set_from_db_chat_open_status(owner_username_slug):
-    status = RedisChatStatusInterface.check_is_chat_open(owner_username_slug)
+async def get_or_set_from_db_chat_open_status(owner_username):
+    status = RedisChatStatusInterface.check_is_chat_open(owner_username)
 
     if status is not None:
         return status
 
     else:
         try:
-            chat_owner = await database_sync_to_async(User.objects.get)(username_slug=owner_username_slug)
+            chat_owner = await database_sync_to_async(User.objects.get)(username=owner_username)
         except ObjectDoesNotExist:
             return False
 

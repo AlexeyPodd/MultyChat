@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 import os
+import re
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -147,5 +148,6 @@ REDIS_PORT = 6379
 
 LENGTH_OF_CHAT_LOG = 20
 CHAT_AUTO_DELETE_DELAY = 60 * 60 * 24
-CHAT_LOGGING_DATA_TYPES = "author_username", "author_slug", "message"
-CHAT_LOGGING_DATA_TYPES_PLURAL = "author_usernames", "author_slugs", "messages"
+CHAT_LOGGING_DATA_TYPES = "author_username", "message"
+CHAT_LOGGING_DATA_TYPES_PLURAL = "author_usernames", "messages"
+PRIVATE_MESSAGE_REGEX = re.compile(r'@(?P<recipient_username>[_a-zA-Z0-9]+?),(?P<message>.+)')
