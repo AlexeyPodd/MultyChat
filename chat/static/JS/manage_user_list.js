@@ -1,6 +1,6 @@
 const csrfToken = document.querySelector('input[name=csrfmiddlewaretoken]');
 
-document.querySelectorAll('.unban-btn').forEach((element) => {
+document.querySelectorAll('.action-btn').forEach((element) => {
 	element.addEventListener("click", sendPOSTUnbanUser);
 });
 

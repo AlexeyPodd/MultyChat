@@ -3,22 +3,22 @@
 
 {% block content %}
 <div class="d-flex flex-column col-12 col-lg-9 col-xxl-6">
-    {% if black_listed_users %}
+    {% if user_list %}
     <div class="p-5">
-        {% for user in black_listed_users %}
+        {% for user in user_list %}
         <div class="row my-3 py-1 bg-secondary-subtle{% if not forloop.last %} border-bottom{% endif %}">
             <div class="col-6">{{ user.username }}</div>
-            <div class="col-6"><button type="button" class="btn btn-warning btn-sm unban-btn" data-user-username="{{ user.username }}">Exclude from Black List</button></div>
+            <div class="col-6"><button type="button" class="btn btn-sm action-btn {{ bootstrap_btn_color }}" data-user-username="{{ user.username }}">{{ button_label }}</button></div>
         </div>
         {% endfor %}
     </div>
     {% else %}
-    <p class="m-5 text-center h3 text-secondary">Black List is empty</p>
+    <p class="m-5 text-center h3 text-secondary">{{ empty_phrase }}</p>
     {% endif %}
 </div>
 {% endblock %}
 
 {% block additional_java_script %}
 {% csrf_token %}
-<script src="{% static 'JS/unban_chat.js' %}"></script>
+<script src="{% static 'JS/manage_user_list.js' %}"></script>
 {% endblock %}

@@ -21,15 +21,15 @@
                 </div>
                 {% else %}
                 <div class="p-3 text-center">
-                    <span class="badge bg-danger">{{ message.message }}</span>
+                    <span class="badge {% if 'banned' in message.message %}bg-danger{% else %}bg-warning text-black{% endif %}">{{ message.message }}</span>
                 </div>
                 {% endif %}
             {% endif %}
             {% endfor %}
         </div>
         <div id="chat-input" class="d-flex flex-row">
-            <input type="text" id="chat-message-input" class="w-75 m-2 form-control border border-3 border-secondary"{% if not chat_owner.is_running_chat %} disabled{% endif %}>
-            <input type="submit" id="chat-message-submit" class="w-25 m-2 btn btn-secondary" value="Send"{% if not chat_owner.is_running_chat %} disabled{% endif %}>
+            <input type="text" id="chat-message-input" class="w-75 m-2 form-control border border-3 border-secondary"{% if not chat_owner.is_running_chat or am_banned %} disabled{% endif %}>
+            <input type="submit" id="chat-message-submit" class="w-25 m-2 btn btn-secondary" value="Send"{% if not chat_owner.is_running_chat or am_banned %} disabled{% endif %}>
         </div>
     </div>
 {% endblock %}

@@ -1,7 +1,7 @@
 const chatOwnerSlug = JSON.parse(document.getElementById('chat-owner-slug').textContent);
 const chatOwnerUsername = JSON.parse(document.getElementById('chat-owner-username').textContent);
 const userUsername = JSON.parse(document.getElementById('username').textContent);
-const moderUsernames = JSON.parse(document.getElementById('moder-usernames').textContent);
+const moderUsernames = new Set(JSON.parse(document.getElementById('moder-usernames').textContent));
 const userHasAdminPrivileges = JSON.parse(document.getElementById('admin-privileges-granted').textContent);
 let chatIsOpen = JSON.parse(document.getElementById('chat-is-open').textContent);
 const url = `ws://${window.location.host}/ws/room/${chatOwnerSlug}/`;
@@ -46,7 +46,7 @@ chatSocket.onmessage = function(e) {
 	}
 
 	// scrolling, if chat was scrolled all way down
-	if(chatBlock.scrollTop >= chatBlock.scrollHeight - chatBlock.clientHeight - messageDiv.scrollHeight * 2) {
+	if(messageDiv && chatBlock.scrollTop >= chatBlock.scrollHeight - chatBlock.clientHeight - messageDiv.scrollHeight * 2) {
 		scrollChatToBottom();
 	}
 }
@@ -64,6 +64,15 @@ function handleSystemCommand(data) {
 			break;
 		case 'add_user_to_black_list':
 			executeCommandAddUserToBlackList(data.userUsername);
+			break;
+		case 'appoint_moderator':
+			executeCommandAppointModerator(data.userUsername);
+			break;
+		case 'demote_moderator':
+			executeCommandDemoteModerator(data.userUsername);
+			break;
+		case 'ban_user':
+			executeCommandBanUser(data.userUsername);
 			break;
 	}
 }
@@ -86,9 +95,12 @@ function addUserMessage(data) {
 }
 
 function addSystemMessage(data) {
+	if (!data.message) return;
+
 	const messageText = document.createElement('span');
 	messageText.textContent = data.message
-	messageText.className = 'badge bg-danger';
+	bageColorClass = data.command == 'ban_user' ? 'bg-danger' : 'bg-warning text-black';
+	messageText.className = `badge ${bageColorClass}`;
 
 	const messageDiv = document.createElement('div');
 	messageDiv.className = 'p-3 text-center';
@@ -205,8 +217,21 @@ function executeCommandBanChat() {
 	}
 }
 
-function executeCommandAddUserToBlackList(userUsername) {
-	deleteAllSpecificUserMessagesFromChat(userUsername);
+function executeCommandAddUserToBlackList(username) {
+	deleteAllSpecificUserMessagesFromChat(username);
+}
+
+function executeCommandAppointModerator(username) {
+	moderUsernames.add(username);
+}
+
+function executeCommandDemoteModerator(username) {
+	moderUsernames.delete(username);
+}
+
+function executeCommandBanUser(username) {
+	if (username == userUsername) executeCommandCloseChat();
+	deleteAllSpecificUserMessagesFromChat(username);
 }
 
 function addUserToBlackListListener(event) {
@@ -225,22 +250,42 @@ function initiatePrivateMessageListener(event) {
 }
 
 function demoteModeratorListener(event) {
-	console.log('demoteModerator');
+	sendCommandToServer(
+		'demote_moderator',
+		{'username': event.currentTarget.parentElement.getAttribute('data-sender-username')},
+	);
+	event.currentTarget.parentElement.remove();
 }
 
 function appointModeratorListener(event) {
-	console.log('appointModerator');
+	sendCommandToServer(
+		'appoint_moderator',
+		{'username': event.currentTarget.parentElement.getAttribute('data-sender-username')},
+	);
+	event.currentTarget.parentElement.remove();
 }
 
-function expandBanMenuListener(event) {
-	console.log('expandBanMenu');
+function banListener(event) {
+	event.preventDefault();
+
+	sendCommandToServer(
+		'ban_user',
+		{
+			'username': event.currentTarget.parentElement.parentElement.getAttribute('data-sender-username'),
+			'chatOwnerUsername': chatOwnerUsername,
+			'termOfBan': Number(event.currentTarget.term_input.value),
+			'termTypeOfBan': event.currentTarget.term_type_input.value,
+		},
+	);
+
+	event.currentTarget.parentElement.parentElement.remove();
 }
 
-function deleteAllSpecificUserMessagesFromChat(userUsername) {
+function deleteAllSpecificUserMessagesFromChat(username) {
 	let messageDiv = null;
 	for (let i=chatBlock.children.length-1; i>=0; --i) {
 		messageDiv = chatBlock.children[i]
-		if (messageDiv.firstElementChild.getAttribute("data-sender-username") == userUsername) {
+		if (messageDiv.firstElementChild.getAttribute("data-sender-username") == username) {
 			messageDiv.remove();
 		}
 	}

@@ -39,6 +39,17 @@ class RedisChatLogInterface:
                     for data_type in CHAT_LOGGING_DATA_TYPES_PLURAL]
         return [{data_type: data[i] for i, data_type in enumerate(CHAT_LOGGING_DATA_TYPES)} for data in zip(*log_data)]
 
+    @classmethod
+    def delete_user_messages(cls, chat_owner_username: str, username: str) -> None:
+        log_data = []
+        for data_type in CHAT_LOGGING_DATA_TYPES_PLURAL:
+            log_data.append(redis_instance.lrange(f"chat__{chat_owner_username}__{data_type}", 0, -1))
+            redis_instance.delete(f"chat__{chat_owner_username}__{data_type}")
+
+        log_data = zip(*filter(lambda data: data[0] != username, zip(*log_data)))
+        for log_type, log_data in zip(CHAT_LOGGING_DATA_TYPES_PLURAL, log_data):
+            redis_instance.rpush(f"chat__{chat_owner_username}__{log_type}", *log_data)
+
 
 class RedisChatStatusInterface:
     @staticmethod

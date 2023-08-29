@@ -8,13 +8,20 @@
     cursor: default;
 }
 
-#chat-user-dropdown-menu {
+#chat-user-dropdown-menu, #ban-menu {
     position: fixed;
     z-index: 9999;
     width: 160px;
-    background: #535353;
     border-radius: 3px;
     cursor: default;
+}
+
+#chat-user-dropdown-menu {
+    background: #535353;
+}
+
+#ban-menu {
+    background: #a7a7a7;
 }
 
 #chat-user-dropdown-menu .menu-item {
@@ -38,15 +45,31 @@
     transition: .1s;
 }
 
+#ban-term {
+    width: 35%;
+    margin: 6px 8px;
+    display: inline-block;
+    font-size: 14px;
+}
+
+#ban-term-type {
+    width: 50%;
+    margin: 6px 8px 6px 0;
+    display: inline-block;
+    font-size: 14px;
+}
+
+.private-message-to-me, .private-message-from-me {
+    background: #c0c0c0;
+}
+
 .private-message-to-me {
-    background: #a9a9a9;
     border-top-right-radius: 10px;
     border-bottom-right-radius: 10px;
     border-bottom-left-radius: 35px;
 }
 
 .private-message-from-me {
-    background: #a9a9a9;
     border-top-left-radius: 10px;
     border-bottom-left-radius: 10px;
     border-bottom-right-radius: 35px;
