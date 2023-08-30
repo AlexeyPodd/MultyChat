@@ -74,3 +74,9 @@
     border-bottom-left-radius: 10px;
     border-bottom-right-radius: 35px;
 }
+
+.ban-menu-checkbox {
+    margin: 5px 10px;
+    width: 16px;
+    height: 16px;
+}

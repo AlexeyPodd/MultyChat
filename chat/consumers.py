@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from account.models import User
-from multychats.settings import PRIVATE_MESSAGE_REGEX
+from multychats.settings import PRIVATE_MESSAGE_REGEX, CHAT_USER_STATUSES
 from . import cache_manager
 from chat.redis_interface import RedisChatLogInterface, RedisChatStatusInterface
 from .models import Ban
@@ -27,8 +27,8 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f'chat_{self.chat_owner_username}'
         self._black_list_usernames = await database_sync_to_async(set)(self.scope['user'].black_listed_users.
                                                                        values_list('username', flat=True))
-        self._moderator_username_list = await database_sync_to_async(set)(self.scope['user'].moderators.
-                                                                          values_list('username', flat=True))
+        self._moderator = await database_sync_to_async(
+            self.scope['user'].moderating_user_chats.filter(username_slug=chat_owner_slug).exists)()
         self._banned = await database_sync_to_async(self.scope['user'].bans.filter(
             Q(chat_owner=chat_owner) | Q(chat_owner=None),
             Q(time_end__gt=timezone.now()) | Q(time_end=None)).exists)()
@@ -76,17 +76,18 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
                 await self._ban_user(text_data_json)
 
     async def _handle_chat_message(self, text_data_json):
-        message = text_data_json.get('message')
-        sender_username = text_data_json.get('userUsername')
-
         if self._banned:
             return
 
         if not await cache_manager.get_or_set_from_db_chat_open_status(self.chat_owner_username):
             return
 
-        if not message or not sender_username:
+        message = text_data_json.get('message')
+        if not message:
             return
+
+        sender_username = self.scope['user'].username
+        sender_status = self._get_status()
 
         # Is this is private message
         private_message_match = re.fullmatch(PRIVATE_MESSAGE_REGEX, message)
@@ -106,32 +107,38 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
 
         RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
                                                author_username=sender_username,
+                                               author_status=sender_status,
                                                message=message)
 
         await self.channel_layer.group_send(
             self.room_group_name,
             {'type': 'chatroom_message',
              'message': message,
-             "sender_username": sender_username},
+             "sender_username": sender_username,
+             'sender_status': sender_status},
         )
 
     async def chatroom_message(self, event):
         message = event['message']
         sender_username = event['sender_username']
+        sender_status = event['sender_status']
 
         if sender_username in self._black_list_usernames:
             return
 
         await self.send(text_data=json.dumps({'message': message,
                                               'senderUsername': sender_username,
+                                              'senderStatus': sender_status,
                                               'messageType': 'chatroom_message'}))
 
     async def system_message(self, event):
         match event['command']:
             case 'demote_moderator':
-                self._moderator_username_list.remove(event.get('userUsername'))
+                if self.scope['user'].username == event['userUsername'] and self._moderator:
+                    self._moderator = False
             case 'appoint_moderator':
-                self._moderator_username_list.add(event.get('userUsername'))
+                if self.scope['user'].username == event['userUsername'] and not self._moderator:
+                    self._moderator = True
             case 'ban_user':
                 if event['userUsername'] == self.scope['user'].username:
                     self._banned = True
@@ -167,6 +174,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
 
         RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
                                                author_username='',
+                                               author_status='',
                                                message=message)
 
         await self.channel_layer.group_send(
@@ -196,6 +204,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
 
         RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
                                                author_username='',
+                                               author_status='',
                                                message=message)
 
         await self.channel_layer.group_send(
@@ -208,7 +217,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
     async def _add_user_to_black_list(self, text_data_json):
         username = text_data_json.get('username')
 
-        if not username or username in self._black_list_usernames:
+        if username in self._black_list_usernames:
             return
 
         try:
@@ -226,15 +235,23 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
     async def _demote_moderator(self, text_data_json):
         username = text_data_json.get('username')
 
-        if username not in self._moderator_username_list:
-            return
-
         try:
             moderator = await User.objects.aget(username=username)
         except ObjectDoesNotExist:
             return
 
+        # check if user is admin or not moderator
+        if moderator.is_staff:
+            return
+        if not await database_sync_to_async(
+                moderator.moderating_user_chats.filter(username=self.scope['user'].username).exists)():
+            return
+
         await self.scope['user'].moderators.aremove(moderator)
+
+        RedisChatLogInterface.change_user_status(chat_owner_username=self.chat_owner_username,
+                                                 username=username,
+                                                 new_status=CHAT_USER_STATUSES[4])
 
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -246,15 +263,23 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
     async def _appoint_moderator(self, text_data_json):
         username = text_data_json.get('username')
 
-        if username in self._moderator_username_list:
-            return
-
         try:
             moderator = await User.objects.aget(username=username)
         except ObjectDoesNotExist:
             return
 
+        # check if user is moderator or admin
+        if moderator.is_staff:
+            return
+        if await database_sync_to_async(
+                moderator.moderating_user_chats.filter(username=self.scope['user'].username).exists)():
+            return
+
         await self.scope['user'].moderators.aadd(moderator)
+
+        RedisChatLogInterface.change_user_status(chat_owner_username=self.chat_owner_username,
+                                                 username=username,
+                                                 new_status=CHAT_USER_STATUSES[3])
 
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -265,7 +290,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
 
     async def _ban_user(self, text_data_json):
         # Check having banning permission
-        if not (self.scope['user'].username in self._moderator_username_list
+        if not (self._moderator
                 or self.scope['user'].username == self.chat_owner_username
                 or self.scope['user'].is_staff):
             return
@@ -308,6 +333,7 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         message = f"{self.scope['user'].username} banned {banned_user_username} for {ban_duration} {ban_duration_type}"
         RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
                                                author_username='',
+                                               author_status='',
                                                message=message)
 
         await self.channel_layer.group_send(
@@ -318,3 +344,14 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
              'message': message,
              },
         )
+
+    def _get_status(self):
+        if self.scope['user'].is_superuser:
+            return CHAT_USER_STATUSES[0]
+        if self.scope['user'].is_staff:
+            return CHAT_USER_STATUSES[1]
+        if self.scope['user'].username == self.chat_owner_username:
+            return CHAT_USER_STATUSES[2]
+        if self._moderator:
+            return CHAT_USER_STATUSES[3]
+        return CHAT_USER_STATUSES[4]

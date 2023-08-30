@@ -148,6 +148,7 @@ REDIS_PORT = 6379
 
 LENGTH_OF_CHAT_LOG = 20
 CHAT_AUTO_DELETE_DELAY = 60 * 60 * 24
-CHAT_LOGGING_DATA_TYPES = "author_username", "message"
-CHAT_LOGGING_DATA_TYPES_PLURAL = "author_usernames", "messages"
+CHAT_LOGGING_DATA_TYPES = "author_username", "author_status", "message"
+CHAT_LOGGING_DATA_TYPES_PLURAL = "author_usernames", "author_statuses", "messages"
 PRIVATE_MESSAGE_REGEX = re.compile(r'@(?P<recipient_username>[_a-zA-Z0-9]+?),(?P<message>.+)')
+CHAT_USER_STATUSES = ('superuser', 'admin', 'owner', 'moderator', 'user')

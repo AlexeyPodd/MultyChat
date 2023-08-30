@@ -23,8 +23,8 @@ MessageData = TypedDict('MessageData', {data_type: str for data_type in CHAT_LOG
 
 class RedisChatLogInterface:
     @staticmethod
-    def log_chat_message(chat_owner_username: str, author_username: str, message: str) -> None:
-        log_data = [author_username, message]
+    def log_chat_message(chat_owner_username: str, author_username: str, author_status: str, message: str) -> None:
+        log_data = [author_username, author_status, message]
 
         for log_type, log_data in zip(CHAT_LOGGING_DATA_TYPES_PLURAL, log_data):
             redis_instance.rpush(f"chat__{chat_owner_username}__{log_type}", log_data)
@@ -41,12 +41,27 @@ class RedisChatLogInterface:
 
     @classmethod
     def delete_user_messages(cls, chat_owner_username: str, username: str) -> None:
+        log_data = cls._pop_all_data(chat_owner_username)
+        log_data = zip(*filter(lambda data: data[0] != username, zip(*log_data)))
+        cls._write_log_data(chat_owner_username, log_data)
+
+    @classmethod
+    def change_user_status(cls, chat_owner_username: str, username: str, new_status: str):
+        log_data = cls._pop_all_data(chat_owner_username)
+        log_data = zip(*map(lambda data: (data[0], new_status, data[2]) if data[0] == username else data,
+                            zip(*log_data)))
+        cls._write_log_data(chat_owner_username, log_data)
+
+    @staticmethod
+    def _pop_all_data(chat_owner_username: str) -> List[List[str]]:
         log_data = []
         for data_type in CHAT_LOGGING_DATA_TYPES_PLURAL:
             log_data.append(redis_instance.lrange(f"chat__{chat_owner_username}__{data_type}", 0, -1))
             redis_instance.delete(f"chat__{chat_owner_username}__{data_type}")
+        return log_data
 
-        log_data = zip(*filter(lambda data: data[0] != username, zip(*log_data)))
+    @staticmethod
+    def _write_log_data(chat_owner_username: str, log_data: str) -> None:
         for log_type, log_data in zip(CHAT_LOGGING_DATA_TYPES_PLURAL, log_data):
             redis_instance.rpush(f"chat__{chat_owner_username}__{log_type}", *log_data)
 

@@ -1,9 +1,10 @@
 const chatOwnerSlug = JSON.parse(document.getElementById('chat-owner-slug').textContent);
 const chatOwnerUsername = JSON.parse(document.getElementById('chat-owner-username').textContent);
 const userUsername = JSON.parse(document.getElementById('username').textContent);
-const moderUsernames = new Set(JSON.parse(document.getElementById('moder-usernames').textContent));
+let amModer = JSON.parse(document.getElementById('am-moder').textContent);
 const userHasAdminPrivileges = JSON.parse(document.getElementById('admin-privileges-granted').textContent);
 let chatIsOpen = JSON.parse(document.getElementById('chat-is-open').textContent);
+const chatUserStatuses = JSON.parse(document.getElementById('user-statuses').textContent);
 const url = `ws://${window.location.host}/ws/room/${chatOwnerSlug}/`;
 const chatSocket = new WebSocket(url);
 
@@ -82,6 +83,7 @@ function addUserMessage(data) {
 	messageAuthor.textContent = data.senderUsername+":";
 	messageAuthor.className = 'fw-bold me-1 px-1 message-author';
 	messageAuthor.setAttribute("data-sender-username", data.senderUsername);
+	messageAuthor.setAttribute("data-sender-status", data.senderStatus);
 	messageAuthor.addEventListener("contextmenu", showChatContextMenu);
 
 	const messageText = document.createTextNode(data.message);
@@ -157,13 +159,12 @@ function scrollChatToBottom(e) {
 	chatBlock.scrollTop = chatBlock.scrollHeight - chatBlock.clientHeight;
 }
 
-// sending message function
 function sendMassegeToServer(e) {
 	if (!chatIsOpen) return;
 
 	const message = messageInputBlock.value;
 	if (message) {
-		chatSocket.send(JSON.stringify({message, userUsername, messageType: 'message'}));
+		chatSocket.send(JSON.stringify({message, messageType: 'message'}));
 		messageInputBlock.value = '';
 	}
 	messageInputBlock.focus();
@@ -186,8 +187,7 @@ function sendCommandToServer(command, commandData=null) {
 
 function executeCommandOpenChat() {
 	chatIsOpen = true;
-	messageInputBlock.removeAttribute('disabled');
-	sendMessageButton.removeAttribute('disabled');
+	messageInputBlock.disbled = sendMessageButton.disabled = false;
 	if (chatManagamentButton && chatOwnerUsername == userUsername) {
 		chatManagamentButton.dataset.command = 'close_chat';
 		chatManagamentButton.textContent = 'Close Chat';
@@ -196,8 +196,7 @@ function executeCommandOpenChat() {
 
 function executeCommandCloseChat() {
 	chatIsOpen = false;
-	sendMessageButton.setAttribute('disabled', '');
-	messageInputBlock.setAttribute('disabled', '');
+	messageInputBlock.disbled = sendMessageButton.disabled = true;
 	if (chatManagamentButton && chatOwnerUsername == userUsername) {
 		chatManagamentButton.dataset.command = 'open_chat';
 		chatManagamentButton.textContent = 'Open Chat';
@@ -206,10 +205,9 @@ function executeCommandCloseChat() {
 
 function executeCommandBanChat() {
 	chatIsOpen = false;
-	sendMessageButton.setAttribute('disabled', '');
-	messageInputBlock.setAttribute('disabled', '');
+	messageInputBlock.disbled = sendMessageButton.disabled = true;
 	if (chatManagamentButton) {
-		chatManagamentButton.setAttribute('disabled', '');
+		chatManagamentButton.disabled = true;
 		if (chatOwnerUsername == userUsername) {
 			chatManagamentButton.dataset.command = 'open_chat';
 			chatManagamentButton.textContent = 'Open Chat';
@@ -222,11 +220,17 @@ function executeCommandAddUserToBlackList(username) {
 }
 
 function executeCommandAppointModerator(username) {
-	moderUsernames.add(username);
+	if (username == userUsername) amModer=true;
+	for (messageAuthorSpanElement of document.querySelectorAll(`[data-sender-username="${username}"]`)) {
+		messageAuthorSpanElement.setAttribute('data-sender-status', chatUserStatuses[3]);
+	}
 }
 
 function executeCommandDemoteModerator(username) {
-	moderUsernames.delete(username);
+	if (username == userUsername) amModer=false;
+	for (messageAuthorSpanElement of document.querySelectorAll(`[data-sender-username="${username}"]`)) {
+		messageAuthorSpanElement.setAttribute('data-sender-status', chatUserStatuses[4]);
+	}
 }
 
 function executeCommandBanUser(username) {
@@ -268,16 +272,20 @@ function appointModeratorListener(event) {
 function banListener(event) {
 	event.preventDefault();
 
-	sendCommandToServer(
-		'ban_user',
-		{
-			'username': event.currentTarget.parentElement.parentElement.getAttribute('data-sender-username'),
-			'chatOwnerUsername': chatOwnerUsername,
-			'termOfBan': Number(event.currentTarget.term_input.value),
-			'termTypeOfBan': event.currentTarget.term_type_input.value,
-		},
-	);
+	commandData = {
+		'username': event.currentTarget.parentElement.parentElement.getAttribute('data-sender-username'),
+		'chatOwnerUsername': chatOwnerUsername,
+		'termOfBan': Number(event.currentTarget.term_input.value),
+		'termTypeOfBan': event.currentTarget.term_type_input.value,
+	}
+	if (event.currentTarget.ban_indefinitely) {
+		commandData['indefinitely'] = event.currentTarget.ban_indefinitely.checked;
+	}
+	if (event.currentTarget.ban_in_all_chasts) {
+		commandData['inAllChats'] = event.currentTarget.ban_in_all_chasts.checked;
+	}
 
+	sendCommandToServer('ban_user', commandData);
 	event.currentTarget.parentElement.parentElement.remove();
 }
 

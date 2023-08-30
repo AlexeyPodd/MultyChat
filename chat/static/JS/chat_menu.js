@@ -21,7 +21,10 @@ window.addEventListener('mousedown', (event) => {
 function showChatContextMenu(event) {
 	event.preventDefault();
 
-	const contextMenu = createUserContextMenu(event.currentTarget.getAttribute('data-sender-username'));
+	const contextMenu = createUserContextMenu(
+		event.currentTarget.getAttribute('data-sender-username'),
+		event.currentTarget.getAttribute('data-sender-status'),
+	);
 	document.body.append(contextMenu);
 
 	if (event.clientX + contextMenu.offsetWidth > document.documentElement.clientWidth) {
@@ -39,7 +42,7 @@ function showChatContextMenu(event) {
 	}
 }
 
-function createUserContextMenu(senderUsername) {
+function createUserContextMenu(senderUsername, senderStatus) {
 	menuDiv = document.createElement('div');
 	menuDiv.id = 'chat-user-dropdown-menu';
 	menuDiv.setAttribute('data-sender-username', senderUsername);
@@ -56,16 +59,16 @@ function createUserContextMenu(senderUsername) {
 
 		// Moderators management items
 		if (userUsername == chatOwnerUsername) {
-			if (moderUsernames.has(senderUsername)) {
+			if (senderStatus == 'moderator') {
 				menuDiv.append(createContextMenuItem('Demote Moderator', demoteModeratorListener));
 			}
-			else {
+			if (senderStatus == 'user') {
 				menuDiv.append(createContextMenuItem('Appoint Moderator', appointModeratorListener));
 			}
 		}
 
 		// Ban management items
-		if (moderUsernames.has(senderUsername) || userUsername == chatOwnerUsername || userHasAdminPrivileges) {
+		if (amModer || userUsername == chatOwnerUsername || userHasAdminPrivileges) {
 			menuDiv.append(createContextMenuItem('Ban User', showBanMenuListener));
 		}
 	}
@@ -105,7 +108,12 @@ function showBanMenuListener(event) {
 		banMenu.style.left = contextMenuStyle.left+'px';
 	}
 	else {
-		banMenu.style.top = contextMenuStyle.top + contextMenuStyle.height / 3 + 'px';
+		if (document.documentElement.clientHeight - contextMenuStyle.bottom + contextMenuStyle.height * 2 / 3 > banMenu.offsetHeight) {
+			banMenu.style.top = contextMenuStyle.top + contextMenuStyle.height / 3 + 'px';
+		}
+		else {
+			banMenu.style.bottom = 0;
+		}
 		if (document.documentElement.clientWidth - contextMenuStyle.right > banMenu.offsetWidth) {
 			banMenu.style.left = contextMenuStyle.right+'px';
 		}
@@ -116,25 +124,24 @@ function showBanMenuListener(event) {
 }
 
 function createBanMenu(parentMenu) {
-	menuDiv = document.createElement('div');
+	const menuDiv = document.createElement('div');
 	menuDiv.id = 'ban-menu';
 
-	form = document.createElement('form');
+	const form = document.createElement('form');
 	form.name = 'ban-menu-form';
 
-	menuDivInner = document.createElement('div');
+	const menuDivInner = document.createElement('div');
 	menuDivInner.id = 'ban-menu-inner';
-	menuDivInner.className = 'text-end';
 
-	termTypeInput = document.createElement('select');
+	const termTypeInput = document.createElement('select');
 	termTypeInput.name = 'term_type_input';
 	termTypeInput.id = 'ban-term-type';
 
-	termTypeOptionMinutes = document.createElement('option');
+	const termTypeOptionMinutes = document.createElement('option');
 	termTypeOptionMinutes.value = termTypeOptionMinutes.textContent = 'minutes';
-	termTypeOptionHours = document.createElement('option');
+	const termTypeOptionHours = document.createElement('option');
 	termTypeOptionHours.value = termTypeOptionHours.textContent = 'hours';
-	termTypeOptionDays = document.createElement('option');
+	const termTypeOptionDays = document.createElement('option');
 	termTypeOptionDays.value = termTypeOptionDays.textContent = 'days';
 
 	termTypeInput.append(termTypeOptionMinutes);
@@ -143,7 +150,7 @@ function createBanMenu(parentMenu) {
 
 	termTypeInput.value = 'minutes';
 
-	termInput = document.createElement('input');
+	const termInput = document.createElement('input');
 	termInput.id = 'ban-term';
 	termInput.name = 'term_input';
 	termInput.type = 'number';
@@ -170,15 +177,74 @@ function createBanMenu(parentMenu) {
 		if (Number(termInput.value) > Number(termInput.max)) termInput.value = termInput.max;
 	}
 
-	submitButton = document.createElement('input');
+	let indefinitelyBanItem = null;
+	if (userUsername == chatOwnerUsername || userHasAdminPrivileges) {
+		const indefinitelyCheckBox = document.createElement('input');
+		indefinitelyCheckBox.type = 'checkbox';
+		indefinitelyCheckBox.name = 'ban_indefinitely';
+		indefinitelyCheckBox.id = 'ban_indefinitely';
+		indefinitelyCheckBox.className = 'ban-menu-checkbox';
+
+		const indefinitelyCheckBoxLabel = document.createElement('label');
+		indefinitelyCheckBoxLabel.htmlFor = indefinitelyCheckBox.name;
+		indefinitelyCheckBoxLabel.id = indefinitelyCheckBox.id+'_label';
+		indefinitelyCheckBoxLabel.innerHTML = 'Ban Indefinitely';
+		indefinitelyCheckBoxLabel.className = 'ban-menu-checkbox-label';
+
+		indefinitelyBanItem = document.createElement('div');
+
+		indefinitelyBanItem.append(indefinitelyCheckBox);
+		indefinitelyBanItem.append(indefinitelyCheckBoxLabel);
+
+		indefinitelyCheckBox.onchange = (event) => {
+			termTypeInput.disabled = event.currentTarget.checked;
+			termInput.disabled = event.currentTarget.checked;
+			termInput.required = !event.currentTarget.checked;
+		};
+	}
+
+	let inAllChatsBanItem = null;
+	if (userHasAdminPrivileges) {
+		const inAllChatsCheckBox = document.createElement('input');
+		inAllChatsCheckBox.type = 'checkbox';
+		inAllChatsCheckBox.name = 'ban_in_all_chasts';
+		inAllChatsCheckBox.id = 'ban_in_all_chasts';
+		inAllChatsCheckBox.className = 'ban-menu-checkbox';
+
+		const inAllChatsCheckBoxLabel = document.createElement('label');
+		inAllChatsCheckBoxLabel.htmlFor = inAllChatsCheckBox.name;
+		inAllChatsCheckBoxLabel.id = inAllChatsCheckBox.id+'_label';
+		inAllChatsCheckBoxLabel.innerHTML = 'Ban in all chats';
+		inAllChatsCheckBoxLabel.className = 'ban-menu-checkbox-label';
+
+		inAllChatsBanItem = document.createElement('div');
+
+		inAllChatsBanItem.append(inAllChatsCheckBox);
+		inAllChatsBanItem.append(inAllChatsCheckBoxLabel);
+	}
+
+	const submitButtonBlock = document.createElement('div');
+	submitButtonBlock.className = 'text-end';
+
+	const submitButton = document.createElement('input');
 	submitButton.type = 'submit';
 	submitButton.value = 'Ban';
 	submitButton.id = 'ban-button';
 	submitButton.className = 'btn btn-sm btn-danger m-2 text-center w-50';
+	submitButtonBlock.append(submitButton);
 
 	menuDivInner.append(termInput);
 	menuDivInner.append(termTypeInput);
-	menuDivInner.append(submitButton);
+
+	if (indefinitelyBanItem) {
+		menuDivInner.append(indefinitelyBanItem);
+	}
+
+	if (inAllChatsBanItem) {
+		menuDivInner.append(inAllChatsBanItem);
+	}
+
+	menuDivInner.append(submitButtonBlock);
 	form.append(menuDivInner);
 
 	form.onsubmit = banListener;
