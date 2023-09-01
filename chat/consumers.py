@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from account.models import User
-from multychats.settings import PRIVATE_MESSAGE_REGEX, CHAT_USER_STATUSES
+from multychats.settings import PRIVATE_MESSAGE_REGEX, CHAT_USER_STATUSES, GLOBAL_CHANNELS_GROUP_NAME
 from . import cache_manager
 from chat.redis_interface import RedisChatLogInterface, RedisChatStatusInterface
 from .models import Ban
@@ -35,6 +35,10 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_add(
             self.room_group_name,
+            self.channel_name,
+        )
+        await self.channel_layer.group_add(
+            GLOBAL_CHANNELS_GROUP_NAME,
             self.channel_name,
         )
         await self.accept()
@@ -299,45 +303,75 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         chat_owner_slug = self.scope['url_route']['kwargs']['chat_owner_slug']
         banned_user_username = text_data_json.get('username')
         try:
-            user = await User.objects.aget(username=banned_user_username)
+            banned_user = await User.objects.aget(username=banned_user_username)
             chat_owner = await User.objects.aget(username_slug=chat_owner_slug)
         except ObjectDoesNotExist:
             return
 
-        # getting terms od ban and converting to minutes
-        ban_duration = text_data_json.get('termOfBan')
-        ban_duration_type = text_data_json.get('termTypeOfBan')
-        match ban_duration_type:
-            case 'minutes':
-                ban_timedelta = datetime.timedelta(minutes=ban_duration)
-            case 'hours':
-                ban_timedelta = datetime.timedelta(hours=ban_duration)
-            case 'days':
-                ban_timedelta = datetime.timedelta(days=ban_duration)
-            case _:
-                return
+        banned_user_is_moderator = await database_sync_to_async(
+            banned_user.moderating_user_chats.filter(username_slug=chat_owner_slug).exists)()
 
-        # ban duration verification
-        if not datetime.timedelta(minutes=20) <= ban_timedelta <= datetime.timedelta(days=30):
+        # checking permissions to ban this specific user
+        if self._moderator and not self.scope['user'].is_staff:
+            if banned_user.is_staff or banned_user == chat_owner or banned_user_is_moderator:
+                return
+        if not self.scope['user'].is_superuser and banned_user.is_staff:
             return
 
-        time_end = datetime.datetime.now() + ban_timedelta
-        await Ban.objects.acreate(banned_user=user,
-                                  chat_owner=chat_owner,
+        # getting and checkboxes
+        ban_indefinitely = text_data_json.get('indefinitely')
+        if ban_indefinitely and not (self.scope['user'].is_staff or self.scope['user'] == chat_owner):
+            return
+        in_all_chats = text_data_json.get('inAllChats')
+        if in_all_chats and not self.scope['user'].is_staff:
+            return
+
+        # getting terms od ban and converting to minutes, or setting None if it is indefinite
+        if ban_indefinitely:
+            time_end = None
+            message_ban_duration = "indefinite"
+        else:
+            ban_duration = text_data_json.get('termOfBan')
+            ban_duration_type = text_data_json.get('termTypeOfBan')
+            match ban_duration_type:
+                case 'minutes':
+                    ban_timedelta = datetime.timedelta(minutes=ban_duration)
+                case 'hours':
+                    ban_timedelta = datetime.timedelta(hours=ban_duration)
+                case 'days':
+                    ban_timedelta = datetime.timedelta(days=ban_duration)
+                case _:
+                    return
+
+            # ban duration verification
+            if not datetime.timedelta(minutes=20) <= ban_timedelta <= datetime.timedelta(days=30):
+                return
+
+            time_end = datetime.datetime.now() + ban_timedelta
+            message_ban_duration = f"for {ban_duration} {ban_duration_type}"
+
+        await Ban.objects.acreate(banned_user=banned_user,
+                                  chat_owner=None if in_all_chats else chat_owner,
                                   banned_by=self.scope['user'],
                                   time_end=time_end)
 
-        RedisChatLogInterface.delete_user_messages(chat_owner_username=self.chat_owner_username,
-                                                   username=banned_user_username)
+        # clearing log, deleting banned user messages
+        RedisChatLogInterface.delete_user_messages(
+            chat_owner_username=None if in_all_chats else self.chat_owner_username,
+            username=banned_user_username,
+        )
 
-        message = f"{self.scope['user'].username} banned {banned_user_username} for {ban_duration} {ban_duration_type}"
+        # creating ang logging system message
+        message = f"{self.scope['user'].username} banned {banned_user_username} {message_ban_duration}"
+        if in_all_chats:
+            message += " in all chats"
         RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
                                                author_username='',
                                                author_status='',
                                                message=message)
 
         await self.channel_layer.group_send(
-            self.room_group_name,
+            GLOBAL_CHANNELS_GROUP_NAME if in_all_chats else self.room_group_name,
             {'type': 'system_message',
              'command': 'ban_user',
              'userUsername': banned_user_username,

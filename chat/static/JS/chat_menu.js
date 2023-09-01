@@ -68,13 +68,15 @@ function createUserContextMenu(senderUsername, senderStatus) {
 		}
 
 		// Ban management items
-		if (amModer || userUsername == chatOwnerUsername || userHasAdminPrivileges) {
+		if (userIsModer && senderStatus == chatUserStatuses[4] || userUsername == chatOwnerUsername && senderStatus != chatUserStatuses[3] || userHasAdminPrivileges && chatUserStatuses.slice(2).includes(senderStatus) || userIsSuperuser && senderStatus == chatUserStatuses[1]) {
 			menuDiv.append(createContextMenuItem('Ban User', showBanMenuListener));
 		}
 	}
 
 	menuDiv.addEventListener('mousedown', (event) => event.stopPropagation());
 	menuDiv.addEventListener('contextmenu', (event) => event.preventDefault());
+
+	menuDiv.setAttribute('data-sender-status', senderStatus);
 
 	return menuDiv;
 }
@@ -203,8 +205,9 @@ function createBanMenu(parentMenu) {
 		};
 	}
 
+	const senderStatus = parentMenu.getAttribute('data-sender-status');
 	let inAllChatsBanItem = null;
-	if (userHasAdminPrivileges) {
+	if (userHasAdminPrivileges && chatUserStatuses.slice(2).includes(senderStatus) || userIsSuperuser && senderStatus == chatUserStatuses[1]) {
 		const inAllChatsCheckBox = document.createElement('input');
 		inAllChatsCheckBox.type = 'checkbox';
 		inAllChatsCheckBox.name = 'ban_in_all_chasts';

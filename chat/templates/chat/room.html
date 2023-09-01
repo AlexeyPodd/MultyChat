@@ -16,7 +16,7 @@
             {% for message in last_messages %}
             {% if not message.author_username or message.author_username not in black_list_usernames %}
                 {% if message.author_username %}
-                <div class="pt-2 px-3">
+                <div class="pt-2 px-3 chat-message">
                     <span class="fw-bold me-1 px-1 message-author" data-sender-username="{{ message.author_username }}" data-sender-status="{{ message.author_status }}">{{ message.author_username }}:</span>{{ message.message }}
                 </div>
                 {% else %}
@@ -42,6 +42,7 @@
 {{ chat_owner.is_running_chat|json_script:"chat-is-open" }}
 {{ am_moder|json_script:"am-moder" }}
 {{ request.user.is_staff|json_script:"admin-privileges-granted" }}
+{{ request.user.is_superuser|json_script:"superuser-privileges-granted" }}
 {{ user_statuses|json_script:"user-statuses" }}
 <script src="{% static 'JS/websocket_messaging.js' %}"></script>
 <script src="{% static 'JS/chat_menu.js' %}"></script>

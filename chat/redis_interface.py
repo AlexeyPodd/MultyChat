@@ -40,10 +40,13 @@ class RedisChatLogInterface:
         return [{data_type: data[i] for i, data_type in enumerate(CHAT_LOGGING_DATA_TYPES)} for data in zip(*log_data)]
 
     @classmethod
-    def delete_user_messages(cls, chat_owner_username: str, username: str) -> None:
-        log_data = cls._pop_all_data(chat_owner_username)
-        log_data = zip(*filter(lambda data: data[0] != username, zip(*log_data)))
-        cls._write_log_data(chat_owner_username, log_data)
+    def delete_user_messages(cls, username: str, chat_owner_username: str | None) -> None:
+        chat_owner_usernames = [chat_owner_username] if chat_owner_username else cls._get_logged_chat_owner_usernames()
+
+        for owner_username in chat_owner_usernames:
+            log_data = cls._pop_all_data(owner_username)
+            log_data = zip(*filter(lambda data: data[0] != username, zip(*log_data)))
+            cls._write_log_data(owner_username, log_data)
 
     @classmethod
     def change_user_status(cls, chat_owner_username: str, username: str, new_status: str):
@@ -64,6 +67,10 @@ class RedisChatLogInterface:
     def _write_log_data(chat_owner_username: str, log_data: str) -> None:
         for log_type, log_data in zip(CHAT_LOGGING_DATA_TYPES_PLURAL, log_data):
             redis_instance.rpush(f"chat__{chat_owner_username}__{log_type}", *log_data)
+
+    @staticmethod
+    def _get_logged_chat_owner_usernames():
+        return list(map(lambda s: s[6:-10], redis_instance.keys("chat__*__messages")))
 
 
 class RedisChatStatusInterface:

@@ -1,10 +1,14 @@
 const chatOwnerSlug = JSON.parse(document.getElementById('chat-owner-slug').textContent);
 const chatOwnerUsername = JSON.parse(document.getElementById('chat-owner-username').textContent);
 const userUsername = JSON.parse(document.getElementById('username').textContent);
-let amModer = JSON.parse(document.getElementById('am-moder').textContent);
+
+let userIsModer = JSON.parse(document.getElementById('am-moder').textContent);
 const userHasAdminPrivileges = JSON.parse(document.getElementById('admin-privileges-granted').textContent);
+const userIsSuperuser = JSON.parse(document.getElementById('superuser-privileges-granted').textContent);
+
 let chatIsOpen = JSON.parse(document.getElementById('chat-is-open').textContent);
 const chatUserStatuses = JSON.parse(document.getElementById('user-statuses').textContent);
+
 const url = `ws://${window.location.host}/ws/room/${chatOwnerSlug}/`;
 const chatSocket = new WebSocket(url);
 
@@ -89,7 +93,7 @@ function addUserMessage(data) {
 	const messageText = document.createTextNode(data.message);
 
 	const messageDiv = document.createElement('div');
-	messageDiv.className = 'pt-2 px-3';
+	messageDiv.className = 'pt-2 px-3 chat-message';
 	messageDiv.append(messageAuthor);
 	messageDiv.append(messageText);
 	chatBlock.append(messageDiv);
@@ -120,7 +124,7 @@ function addPrivateMessage(data) {
 	const messageAuthor = document.createElement('span');
 	const messageText = document.createTextNode(data.message);
 
-	messageOuterDiv.className = 'p-2 d-flex';
+	messageOuterDiv.className = 'p-2 d-flex private-message';
 	messageInnerDiv.className = 'p-3 col-8 d-flex flex-column';
 	messageAuthor.className = 'fw-bold px-1';
 
@@ -217,17 +221,18 @@ function executeCommandBanChat() {
 
 function executeCommandAddUserToBlackList(username) {
 	deleteAllSpecificUserMessagesFromChat(username);
+	deleteAllSpecificUserPrivateMessagesFromChat(username);
 }
 
 function executeCommandAppointModerator(username) {
-	if (username == userUsername) amModer=true;
+	if (username == userUsername) userIsModer=true;
 	for (messageAuthorSpanElement of document.querySelectorAll(`[data-sender-username="${username}"]`)) {
 		messageAuthorSpanElement.setAttribute('data-sender-status', chatUserStatuses[3]);
 	}
 }
 
 function executeCommandDemoteModerator(username) {
-	if (username == userUsername) amModer=false;
+	if (username == userUsername) userIsModer=false;
 	for (messageAuthorSpanElement of document.querySelectorAll(`[data-sender-username="${username}"]`)) {
 		messageAuthorSpanElement.setAttribute('data-sender-status', chatUserStatuses[4]);
 	}
@@ -272,12 +277,11 @@ function appointModeratorListener(event) {
 function banListener(event) {
 	event.preventDefault();
 
-	commandData = {
-		'username': event.currentTarget.parentElement.parentElement.getAttribute('data-sender-username'),
-		'chatOwnerUsername': chatOwnerUsername,
-		'termOfBan': Number(event.currentTarget.term_input.value),
-		'termTypeOfBan': event.currentTarget.term_type_input.value,
-	}
+	const username = event.currentTarget.parentElement.parentElement.getAttribute('data-sender-username');
+	const termOfBan = Number(event.currentTarget.term_input.value);
+	const termTypeOfBan = event.currentTarget.term_type_input.value
+	commandData = {username, chatOwnerUsername, termOfBan, termTypeOfBan};
+	
 	if (event.currentTarget.ban_indefinitely) {
 		commandData['indefinitely'] = event.currentTarget.ban_indefinitely.checked;
 	}
@@ -285,15 +289,30 @@ function banListener(event) {
 		commandData['inAllChats'] = event.currentTarget.ban_in_all_chasts.checked;
 	}
 
-	sendCommandToServer('ban_user', commandData);
+	if (event.currentTarget.ban_indefinitely.checked || event.currentTarget.ban_in_all_chasts.checked) {
+		questionBanDuration = event.currentTarget.ban_indefinitely.checked ? 'indefinitely' : `for ${termOfBan} ${termTypeOfBan}`;
+		questionBanLocation = event.currentTarget.ban_in_all_chasts ? 'all chats' : `${chatOwnerUsername} chat`;
+		if (confirm(`Are you sure you want to ban ${bannedUserUsername} ${questionBanDuration} in ${questionBanLocation}`)) {
+			sendCommandToServer('ban_user', commandData);
+		}
+	}
+	else {
+		sendCommandToServer('ban_user', commandData);
+	}
 	event.currentTarget.parentElement.parentElement.remove();
 }
 
 function deleteAllSpecificUserMessagesFromChat(username) {
-	let messageDiv = null;
-	for (let i=chatBlock.children.length-1; i>=0; --i) {
-		messageDiv = chatBlock.children[i]
+	for (messageDiv of document.querySelectorAll('.chat-message')) {
 		if (messageDiv.firstElementChild.getAttribute("data-sender-username") == username) {
+			messageDiv.remove();
+		}
+	}
+}
+
+function deleteAllSpecificUserPrivateMessagesFromChat(username) {
+	for (messageDiv of document.querySelectorAll('.private-message')) {
+		if (messageDiv.firstElementChild.firstElementChild.firstElementChild.getAttribute("data-sender-username") == username) {
 			messageDiv.remove();
 		}
 	}
