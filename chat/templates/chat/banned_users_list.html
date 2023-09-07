@@ -1,0 +1,69 @@
+{% extends 'chat/base/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="col-12">
+    {% if request.user.is_staff %}
+    <form name="search-form">
+        <div id="search-inputs" class="row d-flex align-items-end p-3">
+            <div class="col">
+                <label for="chat-owner-search">Chat Owner</label>
+                <input type="text" id="chat-owner-search" name="owner" class="form-control border border-4">
+            </div>
+            <div class="col">
+                <label for="banned-user-search">User</label>
+                <input type="text" id="banned-user-search" name="user" class="form-control border border-4">
+            </div>
+            <div class="col"><input type="submit" value="Search" id="search-button" class="btn btn-lg btn-outline-secondary"></div>
+        </div>
+    </form>
+    {% elif request.user.moderating_user_chats.exists %}
+    <select name="chat_owner_select" id="chat-owner-select" class="form-select w-50 mt-5 mx-5 border border-4">
+        <option value="{{ request.user.username }}">Banned in My Chat</option>
+        {% for chat_owner in request.user.moderating_user_chats.all %}
+        <option value="{{ chat_owner.username }}">{{ chat_owner.username }}</option>
+        {% endfor %}
+    </select>
+    {% endif %}
+    {% if request.user.is_staff or request.user.moderating_user_chats.exists or banned_users %}
+    <div class="p-5">
+        <table class="table table-warning">
+            <thead>
+                <tr class="table-dark">
+                    <th scope="col">User</th>
+                    <th scope="col">Remaining</th>
+                    <th scope="col">Duration</th>
+                    <th scope="col">End date</th>
+                    <th scope="col">Ban date</th>
+                    <th scope="col">Banned by</th>
+                    <th scope="col"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in banned_users %}
+                <tr{% if not user.dominant_ban.0.time_end %} class="table-danger"{% endif %}>
+                    <th scope="row">{{ user.username }}</th>
+                    <td>{{ user.dominant_ban.0.time_end|timeuntil }}</td>
+                    <td>{{ user.dominant_ban.0.time_end|timeuntil:user.dominant_ban.0.time_start }}</td>
+                    <td>{% if user.dominant_ban.0.time_end %}{{ user.dominant_ban.0.time_end }}{% else %}Indefinite{% endif %}</td>
+                    <td>{{ user.dominant_ban.0.time_start }}</td>
+                    <td>{{ user.dominant_ban.0.banned_by.username }}</td>
+                    <td><button type="button" class="btn btn-sm btn-info">Unban</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="col-12 col-lg-9 col-xxl-6">
+        <p class="m-5 text-center h3 text-secondary">{{ empty_phrase }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block additional_java_script %}
+{% csrf_token %}
+{{ request.user.is_staff|json_script:"user-is-admin" }}
+<script src="{% static 'JS/manage_user_list.js' %}"></script>
+{% endblock %}

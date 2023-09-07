@@ -50,7 +50,7 @@ function createUserContextMenu(senderUsername, senderStatus) {
 	if (senderUsername != userUsername) {
 
 		// Private messages item
-		if (chatIsOpen) {
+		if (chatIsOpen && !userIsBanned) {
 			menuDiv.append(createContextMenuItem('Write Private Message', initiatePrivateMessageListener));
 		}
 		
@@ -150,8 +150,6 @@ function createBanMenu(parentMenu) {
 	termTypeInput.append(termTypeOptionHours);
 	termTypeInput.append(termTypeOptionDays);
 
-	termTypeInput.value = 'minutes';
-
 	const termInput = document.createElement('input');
 	termInput.id = 'ban-term';
 	termInput.name = 'term_input';
@@ -199,8 +197,7 @@ function createBanMenu(parentMenu) {
 		indefinitelyBanItem.append(indefinitelyCheckBoxLabel);
 
 		indefinitelyCheckBox.onchange = (event) => {
-			termTypeInput.disabled = event.currentTarget.checked;
-			termInput.disabled = event.currentTarget.checked;
+			termTypeInput.disabled = termInput.disabled = event.currentTarget.checked;
 			termInput.required = !event.currentTarget.checked;
 		};
 	}
@@ -210,8 +207,8 @@ function createBanMenu(parentMenu) {
 	if (userHasAdminPrivileges && chatUserStatuses.slice(2).includes(senderStatus) || userIsSuperuser && senderStatus == chatUserStatuses[1]) {
 		const inAllChatsCheckBox = document.createElement('input');
 		inAllChatsCheckBox.type = 'checkbox';
-		inAllChatsCheckBox.name = 'ban_in_all_chasts';
-		inAllChatsCheckBox.id = 'ban_in_all_chasts';
+		inAllChatsCheckBox.name = 'ban_in_all_chats';
+		inAllChatsCheckBox.id = 'ban_in_all_chats';
 		inAllChatsCheckBox.className = 'ban-menu-checkbox';
 
 		const inAllChatsCheckBoxLabel = document.createElement('label');

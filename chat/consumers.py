@@ -315,7 +315,8 @@ class ChatRoomConsumer(AsyncWebsocketConsumer):
         if self._moderator and not self.scope['user'].is_staff:
             if banned_user.is_staff or banned_user == chat_owner or banned_user_is_moderator:
                 return
-        if not self.scope['user'].is_superuser and banned_user.is_staff:
+        if (self.scope['user'].username != self.chat_owner_username and
+                not self.scope['user'].is_superuser and banned_user.is_staff):
             return
 
         # getting and checkboxes

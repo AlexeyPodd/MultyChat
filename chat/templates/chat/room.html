@@ -41,6 +41,7 @@
 {{ request.user.username|json_script:"username" }}
 {{ chat_owner.is_running_chat|json_script:"chat-is-open" }}
 {{ am_moder|json_script:"am-moder" }}
+{{ am_banned|json_script:"am-banned" }}
 {{ request.user.is_staff|json_script:"admin-privileges-granted" }}
 {{ request.user.is_superuser|json_script:"superuser-privileges-granted" }}
 {{ user_statuses|json_script:"user-statuses" }}

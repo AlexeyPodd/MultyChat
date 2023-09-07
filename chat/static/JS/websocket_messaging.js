@@ -3,6 +3,7 @@ const chatOwnerUsername = JSON.parse(document.getElementById('chat-owner-usernam
 const userUsername = JSON.parse(document.getElementById('username').textContent);
 
 let userIsModer = JSON.parse(document.getElementById('am-moder').textContent);
+let userIsBanned = JSON.parse(document.getElementById('am-banned').textContent);
 const userHasAdminPrivileges = JSON.parse(document.getElementById('admin-privileges-granted').textContent);
 const userIsSuperuser = JSON.parse(document.getElementById('superuser-privileges-granted').textContent);
 
@@ -164,7 +165,7 @@ function scrollChatToBottom(e) {
 }
 
 function sendMassegeToServer(e) {
-	if (!chatIsOpen) return;
+	if (!chatIsOpen || userIsBanned) return;
 
 	const message = messageInputBlock.value;
 	if (message) {
@@ -191,7 +192,7 @@ function sendCommandToServer(command, commandData=null) {
 
 function executeCommandOpenChat() {
 	chatIsOpen = true;
-	messageInputBlock.disbled = sendMessageButton.disabled = false;
+	messageInputBlock.disabled = sendMessageButton.disabled = false;
 	if (chatManagamentButton && chatOwnerUsername == userUsername) {
 		chatManagamentButton.dataset.command = 'close_chat';
 		chatManagamentButton.textContent = 'Close Chat';
@@ -200,7 +201,7 @@ function executeCommandOpenChat() {
 
 function executeCommandCloseChat() {
 	chatIsOpen = false;
-	messageInputBlock.disbled = sendMessageButton.disabled = true;
+	messageInputBlock.disabled = sendMessageButton.disabled = true;
 	if (chatManagamentButton && chatOwnerUsername == userUsername) {
 		chatManagamentButton.dataset.command = 'open_chat';
 		chatManagamentButton.textContent = 'Open Chat';
@@ -209,7 +210,7 @@ function executeCommandCloseChat() {
 
 function executeCommandBanChat() {
 	chatIsOpen = false;
-	messageInputBlock.disbled = sendMessageButton.disabled = true;
+	messageInputBlock.disabled = sendMessageButton.disabled = true;
 	if (chatManagamentButton) {
 		chatManagamentButton.disabled = true;
 		if (chatOwnerUsername == userUsername) {
@@ -239,7 +240,10 @@ function executeCommandDemoteModerator(username) {
 }
 
 function executeCommandBanUser(username) {
-	if (username == userUsername) executeCommandCloseChat();
+	if (username == userUsername) {
+		messageInputBlock.disabled = sendMessageButton.disabled = true;
+		userIsBanned = true;
+	}
 	deleteAllSpecificUserMessagesFromChat(username);
 }
 
@@ -280,18 +284,18 @@ function banListener(event) {
 	const username = event.currentTarget.parentElement.parentElement.getAttribute('data-sender-username');
 	const termOfBan = Number(event.currentTarget.term_input.value);
 	const termTypeOfBan = event.currentTarget.term_type_input.value
-	commandData = {username, chatOwnerUsername, termOfBan, termTypeOfBan};
+	const commandData = {username, chatOwnerUsername, termOfBan, termTypeOfBan};
 	
 	if (event.currentTarget.ban_indefinitely) {
 		commandData['indefinitely'] = event.currentTarget.ban_indefinitely.checked;
 	}
-	if (event.currentTarget.ban_in_all_chasts) {
-		commandData['inAllChats'] = event.currentTarget.ban_in_all_chasts.checked;
+	if (event.currentTarget.ban_in_all_chats) {
+		commandData['inAllChats'] = event.currentTarget.ban_in_all_chats.checked;
 	}
 
-	if (event.currentTarget.ban_indefinitely.checked || event.currentTarget.ban_in_all_chasts.checked) {
+	if (commandData.indefinitely || commandData.inAllChats) {
 		questionBanDuration = event.currentTarget.ban_indefinitely.checked ? 'indefinitely' : `for ${termOfBan} ${termTypeOfBan}`;
-		questionBanLocation = event.currentTarget.ban_in_all_chasts ? 'all chats' : `${chatOwnerUsername} chat`;
+		questionBanLocation = event.currentTarget.ban_in_all_chats ? 'all chats' : `${chatOwnerUsername} chat`;
 		if (confirm(`Are you sure you want to ban ${bannedUserUsername} ${questionBanDuration} in ${questionBanLocation}`)) {
 			sendCommandToServer('ban_user', commandData);
 		}
