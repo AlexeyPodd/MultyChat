@@ -1,6 +1,8 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Q, F, OuterRef, Prefetch, Exists
+from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
 from django.views.generic import ListView
@@ -103,3 +105,36 @@ class BannedListView(LoginRequiredMixin, ListView):
             'empty_phrase': 'You have no banned users',
         })
         return context
+
+
+def unban_user_ajax_view(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not Authenticated'}, status=403)
+
+    banned_username = request.POST.get('bannedUsername')
+    owner_username = request.POST.get('chatOwnerUsername')
+
+    print(banned_username, owner_username)
+
+    try:
+        banned = User.objects.get(username=banned_username)
+        owner = User.objects.get(username=owner_username)
+    except ObjectDoesNotExist:
+        return JsonResponse({'error': 'Not Founded', 'model': 'User'}, status=404)
+
+    if not (request.user == owner or request.user in owner.moderators):
+        return JsonResponse({'error': 'Permission Denied'}, status=403)
+
+    bans = banned.bans.filter(Q(time_end=None) | Q(time_end__gt=timezone.now()), chat_owner=owner)
+
+    if not bans:
+        return JsonResponse({'error': 'Not Founded', 'model': 'Ban'}, status=404)
+
+    if request.user != owner and bans.filter(time_end__isnull=True).exists():
+        return JsonResponse({'error': 'Permission Denied'}, status=403)
+
+    bans.delete()
+    return JsonResponse({'user_unbanned': banned_username})

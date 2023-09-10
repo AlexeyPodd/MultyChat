@@ -59,11 +59,13 @@ function createUserContextMenu(senderUsername, senderStatus) {
 
 		// Moderators management items
 		if (userUsername == chatOwnerUsername) {
-			if (senderStatus == 'moderator') {
-				menuDiv.append(createContextMenuItem('Demote Moderator', demoteModeratorListener));
-			}
-			if (senderStatus == 'user') {
-				menuDiv.append(createContextMenuItem('Appoint Moderator', appointModeratorListener));
+			switch (senderStatus) {
+				case 'moderator':
+					menuDiv.append(createContextMenuItem('Demote Moderator', demoteModeratorListener));
+					break;
+				case 'user':
+					menuDiv.append(createContextMenuItem('Appoint Moderator', appointModeratorListener));
+					break;
 			}
 		}
 

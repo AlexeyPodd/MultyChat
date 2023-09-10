@@ -11,3 +11,4 @@ media
 
 credential.txt
 .env
+postgres_data/

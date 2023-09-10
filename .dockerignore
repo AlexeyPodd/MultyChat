@@ -1,0 +1,8 @@
+README.md
+.gitignore
+.env
+credential.txt
+__pycache__/
+**/tests/
+staticfiles/*
+postgres_data/

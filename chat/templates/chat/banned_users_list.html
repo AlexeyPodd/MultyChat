@@ -1,6 +1,10 @@
 {% extends 'chat/base/base.html' %}
 {% load static %}
 
+{% block head_extensions %}
+<script src="https://code.jquery.com/jquery-latest.min.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="col-12">
     {% if request.user.is_staff %}
@@ -27,7 +31,7 @@
     {% endif %}
     {% if request.user.is_staff or request.user.moderating_user_chats.exists or banned_users %}
     <div class="p-5">
-        <table class="table table-warning">
+        <table class="table table-warning table-bordered">
             <thead>
                 <tr class="table-dark">
                     <th scope="col">User</th>
@@ -39,7 +43,7 @@
                     <th scope="col"></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody  id="bans-table-body">
                 {% for user in banned_users %}
                 <tr{% if not user.dominant_ban.0.time_end %} class="table-danger"{% endif %}>
                     <th scope="row">{{ user.username }}</th>
@@ -48,7 +52,7 @@
                     <td>{% if user.dominant_ban.0.time_end %}{{ user.dominant_ban.0.time_end }}{% else %}Indefinite{% endif %}</td>
                     <td>{{ user.dominant_ban.0.time_start }}</td>
                     <td>{{ user.dominant_ban.0.banned_by.username }}</td>
-                    <td><button type="button" class="btn btn-sm btn-info">Unban</button></td>
+                    <td><button type="button" class="btn btn-sm btn-info btn-unban" data-banned-username="{{ user.username }}">Unban</button></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -64,6 +68,8 @@
 
 {% block additional_java_script %}
 {% csrf_token %}
-{{ request.user.is_staff|json_script:"user-is-admin" }}
-<script src="{% static 'JS/manage_user_list.js' %}"></script>
+{% url 'chat:unban-user' as unban_url %}
+{{ unban_url|json_script:"unban-url" }}
+{{ request.user.username|json_script:"username" }}
+<script src="{% static 'JS/manage_ban_list.js' %}"></script>
 {% endblock %}
