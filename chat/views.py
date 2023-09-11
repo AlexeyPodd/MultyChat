@@ -1,7 +1,7 @@
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Q, F, OuterRef, Prefetch, Exists
+from django.db.models import Q, F
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.utils import timezone
@@ -75,28 +75,29 @@ def moderator_list_view(request, managed_user_list):
 class BannedListView(LoginRequiredMixin, ListView):
     model = Ban
     template_name = 'chat/banned_users_list.html'
-    context_object_name = 'banned_users'
+    context_object_name = 'bans'
 
     def get_queryset(self):
-        # # Ban instances for PostgreSQL, for another not possible because of distinct('banned_user')
-        # bans_of_users_in_user_chat = self.model.objects.filter(
+        # Ban instances for PostgreSQL, for another not possible because of distinct('banned_user')
+        bans_of_users_in_user_chat = self.model.objects.filter(
+            Q(time_end=None) | Q(time_end__gt=timezone.now()),
+            chat_owner=self.request.user,
+        ).order_by('banned_user', F('time_end').desc(nulls_first=True)).distinct('banned_user')
+
+        # # Users, who is banned, with prefetch related the longest term ban
+        # active_bans = Ban.objects.filter(
+        #     Q(time_end=None) | Q(time_end__gt=timezone.now()),
+        #     banned_user=OuterRef('pk'),
+        #     chat_owner=self.request.user,
+        # )
+        # dominant_ban = Ban.objects.filter(
         #     Q(time_end=None) | Q(time_end__gt=timezone.now()),
         #     chat_owner=self.request.user,
-        # ).order_by(F('time_end').desc(nulls_first=True)).distinct('banned_user')
+        # ).order_by(F('time_end').desc(nulls_first=True))[:1]
+        # baned_users_in_user_chat = User.objects.filter(Exists(active_bans)).prefetch_related(
+        #     Prefetch('bans', queryset=dominant_ban, to_attr='dominant_ban')).order_by('username')
 
-        active_bans = Ban.objects.filter(
-            Q(time_end=None) | Q(time_end__gt=timezone.now()),
-            banned_user=OuterRef('pk'),
-            chat_owner=self.request.user,
-        )
-        dominant_ban = Ban.objects.filter(
-            Q(time_end=None) | Q(time_end__gt=timezone.now()),
-            chat_owner=self.request.user,
-        ).order_by(F('time_end').desc(nulls_first=True))[:1]
-        baned_users_in_user_chat = User.objects.filter(Exists(active_bans)).prefetch_related(
-            Prefetch('bans', queryset=dominant_ban, to_attr='dominant_ban')).order_by('username')
-
-        return baned_users_in_user_chat
+        return bans_of_users_in_user_chat
 
     def get_context_data(self, *, object_list=None, **kwargs):
         context = super().get_context_data(object_list=object_list, **kwargs)
@@ -117,15 +118,13 @@ def unban_user_ajax_view(request):
     banned_username = request.POST.get('bannedUsername')
     owner_username = request.POST.get('chatOwnerUsername')
 
-    print(banned_username, owner_username)
-
     try:
         banned = User.objects.get(username=banned_username)
         owner = User.objects.get(username=owner_username)
     except ObjectDoesNotExist:
         return JsonResponse({'error': 'Not Founded', 'model': 'User'}, status=404)
 
-    if not (request.user == owner or request.user in owner.moderators):
+    if not (request.user.is_staff or request.user == owner or request.user in owner.moderators.all()):
         return JsonResponse({'error': 'Permission Denied'}, status=403)
 
     bans = banned.bans.filter(Q(time_end=None) | Q(time_end__gt=timezone.now()), chat_owner=owner)
@@ -138,3 +137,29 @@ def unban_user_ajax_view(request):
 
     bans.delete()
     return JsonResponse({'user_unbanned': banned_username})
+
+
+def get_chat_banned_info(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not Authenticated'}, status=403)
+
+    owner_username = request.GET.get('owner')
+
+    try:
+        owner = User.objects.get(username=owner_username)
+    except ObjectDoesNotExist:
+        return JsonResponse({'error': 'Not Founded', 'model': 'User'}, status=404)
+
+    if not (request.user.is_staff or request.user == owner or request.user in owner.moderators.all()):
+        return JsonResponse({'error': 'Permission Denied'}, status=403)
+
+    bans = Ban.objects.filter(
+            Q(time_end=None) | Q(time_end__gt=timezone.now()),
+            chat_owner=owner,
+        ).order_by('banned_user', F('time_end').desc(nulls_first=True)).distinct('banned_user')
+
+    data = list(bans.values('banned_user__username', 'time_start', 'time_end', 'banned_by__username'))
+    return JsonResponse({'data': data})

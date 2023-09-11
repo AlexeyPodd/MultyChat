@@ -295,8 +295,8 @@ function banListener(event) {
 
 	if (commandData.indefinitely || commandData.inAllChats) {
 		questionBanDuration = event.currentTarget.ban_indefinitely.checked ? 'indefinitely' : `for ${termOfBan} ${termTypeOfBan}`;
-		questionBanLocation = event.currentTarget.ban_in_all_chats ? 'all chats' : `${chatOwnerUsername} chat`;
-		if (confirm(`Are you sure you want to ban ${bannedUserUsername} ${questionBanDuration} in ${questionBanLocation}`)) {
+		questionBanLocation = event.currentTarget.ban_in_all_chats ? 'all chats' : `${chatOwnerUsername == userUsername ? 'your' : chatOwnerUsername} chat?`;
+		if (confirm(`Are you sure you want to ban ${username} ${questionBanDuration} in ${questionBanLocation}`)) {
 			sendCommandToServer('ban_user', commandData);
 		}
 	}

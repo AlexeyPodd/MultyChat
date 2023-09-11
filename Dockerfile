@@ -11,4 +11,7 @@ RUN apt update && apt install -y \
 COPY . .
 
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt \
+    pip install -r requirements.txt
+
+RUN adduser --disabled-password --no-create-home app
+USER app

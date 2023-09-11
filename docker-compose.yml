@@ -32,6 +32,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    user: postgres
 
 volumes:
   postgres_data:

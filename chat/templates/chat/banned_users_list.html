@@ -25,13 +25,13 @@
     <select name="chat_owner_select" id="chat-owner-select" class="form-select w-50 mt-5 mx-5 border border-4">
         <option value="{{ request.user.username }}">Banned in My Chat</option>
         {% for chat_owner in request.user.moderating_user_chats.all %}
-        <option value="{{ chat_owner.username }}">{{ chat_owner.username }}</option>
+        <option value="{{ chat_owner.username }}">{{ chat_owner.username }}'s chat</option>
         {% endfor %}
     </select>
     {% endif %}
-    {% if request.user.is_staff or request.user.moderating_user_chats.exists or banned_users %}
+    {% if request.user.is_staff or request.user.moderating_user_chats.exists or bans %}
     <div class="p-5">
-        <table class="table table-warning table-bordered">
+        <table class="table table-warning table-bordered text-center">
             <thead>
                 <tr class="table-dark">
                     <th scope="col">User</th>
@@ -44,15 +44,15 @@
                 </tr>
             </thead>
             <tbody  id="bans-table-body">
-                {% for user in banned_users %}
-                <tr{% if not user.dominant_ban.0.time_end %} class="table-danger"{% endif %}>
-                    <th scope="row">{{ user.username }}</th>
-                    <td>{{ user.dominant_ban.0.time_end|timeuntil }}</td>
-                    <td>{{ user.dominant_ban.0.time_end|timeuntil:user.dominant_ban.0.time_start }}</td>
-                    <td>{% if user.dominant_ban.0.time_end %}{{ user.dominant_ban.0.time_end }}{% else %}Indefinite{% endif %}</td>
-                    <td>{{ user.dominant_ban.0.time_start }}</td>
-                    <td>{{ user.dominant_ban.0.banned_by.username }}</td>
-                    <td><button type="button" class="btn btn-sm btn-info btn-unban" data-banned-username="{{ user.username }}">Unban</button></td>
+                {% for ban in bans %}
+                <tr{% if not ban.time_end %} class="table-danger"{% endif %}>
+                    <th scope="row">{{ ban.banned_user.username }}</th>
+                    <td>{{ ban.time_end|timeuntil }}</td>
+                    <td>{{ ban.time_end|timeuntil:ban.time_start }}</td>
+                    <td>{% if ban.time_end %}{{ ban.time_end }}{% else %}Indefinite{% endif %}</td>
+                    <td>{{ ban.time_start }}</td>
+                    <td>{{ ban.banned_by.username }}</td>
+                    <td><button type="button" class="btn btn-sm btn-info btn-unban" data-banned-username="{{ ban.banned_user.username }}">Unban</button></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -68,8 +68,8 @@
 
 {% block additional_java_script %}
 {% csrf_token %}
-{% url 'chat:unban-user' as unban_url %}
-{{ unban_url|json_script:"unban-url" }}
+{% url 'chat:ajax-unban-user' as unban_url %}{{ unban_url|json_script:"unban-url" }}
+{% url 'chat:ajax-banned-list' as banned_moder_list %}{{ banned_moder_list|json_script:"banned-moder-data-list-url" }}
 {{ request.user.username|json_script:"username" }}
 <script src="{% static 'JS/manage_ban_list.js' %}"></script>
 {% endblock %}
