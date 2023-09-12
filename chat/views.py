@@ -1,3 +1,6 @@
+import time
+from datetime import datetime
+
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ObjectDoesNotExist
@@ -139,7 +142,7 @@ def unban_user_ajax_view(request):
     return JsonResponse({'user_unbanned': banned_username})
 
 
-def get_chat_banned_info(request):
+def get_chat_banned_info_ajax_view(request):
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -162,4 +165,31 @@ def get_chat_banned_info(request):
         ).order_by('banned_user', F('time_end').desc(nulls_first=True)).distinct('banned_user')
 
     data = list(bans.values('banned_user__username', 'time_start', 'time_end', 'banned_by__username'))
+    return JsonResponse({'data': data})
+
+
+def get_banned_admin_info_ajax_view(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Not Authenticated'}, status=403)
+
+    if not request.user.is_staff:
+        return JsonResponse({'error': 'Permission Denied'}, status=403)
+
+    owner_username = request.GET.get('owner')
+    banned_username = request.GET.get('user')
+    try:
+        get_all_bans = bool(int(request.GET.get('all')))
+    except ValueError:
+        return JsonResponse({'error': 'Non-Numeric Parameter \'all\''}, status=400)
+
+    if not owner_username and not banned_username:
+        return JsonResponse({'error': 'No Search Criteria'}, status=400)
+
+    print(owner_username, banned_username, get_all_bans)
+
+    data = 'data'
+
     return JsonResponse({'data': data})

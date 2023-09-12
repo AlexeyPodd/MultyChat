@@ -8,22 +8,26 @@
 {% block content %}
 <div class="col-12">
     {% if request.user.is_staff %}
-    <form name="search-form">
+    <form name="searchForm">
         <div id="search-inputs" class="row d-flex align-items-end p-3">
-            <div class="col">
+            <div class="col-12 col-md-4 p-2">
                 <label for="chat-owner-search">Chat Owner</label>
                 <input type="text" id="chat-owner-search" name="owner" class="form-control border border-4">
             </div>
-            <div class="col">
+            <div class="col-12 col-md-4 p-2">
                 <label for="banned-user-search">User</label>
                 <input type="text" id="banned-user-search" name="user" class="form-control border border-4">
             </div>
-            <div class="col"><input type="submit" value="Search" id="search-button" class="btn btn-lg btn-outline-secondary"></div>
+            <div class="col-6 col-md-2 p-2 text-center">
+                <input type="checkbox" id="all-bans-checkbox-search" name="all_bans" class="form-check-input border border-4" style="width: 25px; height: 25px;">
+                <label for="all-bans-checkbox-search" class="form-check-label">All Bans</label>
+            </div>
+            <div class="col-6 col-md-2 p-2"><input type="submit" value="Search" id="search-button" class="btn btn-lg btn-outline-secondary"></div>
         </div>
     </form>
     {% elif request.user.moderating_user_chats.exists %}
     <select name="chat_owner_select" id="chat-owner-select" class="form-select w-50 mt-5 mx-5 border border-4">
-        <option value="{{ request.user.username }}">Banned in My Chat</option>
+        <option value="{{ request.user.username }}">My Chat</option>
         {% for chat_owner in request.user.moderating_user_chats.all %}
         <option value="{{ chat_owner.username }}">{{ chat_owner.username }}'s chat</option>
         {% endfor %}
@@ -35,6 +39,9 @@
             <thead>
                 <tr class="table-dark">
                     <th scope="col">User</th>
+                    {% if request.user.is_staff %}
+                    <th scope="col">Chat Owner</th>
+                    {% endif %}
                     <th scope="col">Remaining</th>
                     <th scope="col">Duration</th>
                     <th scope="col">End date</th>
@@ -44,17 +51,6 @@
                 </tr>
             </thead>
             <tbody  id="bans-table-body">
-                {% for ban in bans %}
-                <tr{% if not ban.time_end %} class="table-danger"{% endif %}>
-                    <th scope="row">{{ ban.banned_user.username }}</th>
-                    <td>{{ ban.time_end|timeuntil }}</td>
-                    <td>{{ ban.time_end|timeuntil:ban.time_start }}</td>
-                    <td>{% if ban.time_end %}{{ ban.time_end }}{% else %}Indefinite{% endif %}</td>
-                    <td>{{ ban.time_start }}</td>
-                    <td>{{ ban.banned_by.username }}</td>
-                    <td><button type="button" class="btn btn-sm btn-info btn-unban" data-banned-username="{{ ban.banned_user.username }}">Unban</button></td>
-                </tr>
-                {% endfor %}
             </tbody>
         </table>
     </div>
@@ -69,7 +65,9 @@
 {% block additional_java_script %}
 {% csrf_token %}
 {% url 'chat:ajax-unban-user' as unban_url %}{{ unban_url|json_script:"unban-url" }}
-{% url 'chat:ajax-banned-list' as banned_moder_list %}{{ banned_moder_list|json_script:"banned-moder-data-list-url" }}
+{% url 'chat:ajax-banned-list' as banned_moder_list_url %}{{ banned_moder_list_url|json_script:"banned-moder-data-list-url" }}
 {{ request.user.username|json_script:"username" }}
+{% if request.user.is_staff %}{% url 'chat:ajax-search-admin-banned-list' as banned_admin_list_url %}{{ banned_admin_list_url|json_script:"banned-admin-data-list-url" }}{% endif %}
 <script src="{% static 'JS/manage_ban_list.js' %}"></script>
+{% if request.user.is_staff %}<script src="{% static 'JS/admin_ban_list.js' %}"></script>{% endif %}
 {% endblock %}
