@@ -35,8 +35,8 @@
     {% endif %}
     {% if request.user.is_staff or request.user.moderating_user_chats.exists or bans %}
     <div class="p-5">
-        <table class="table table-warning table-bordered text-center">
-            <thead>
+        <table class="table table-warning table-bordered text-center" id="bans-table">
+            <thead id="bans-table-head">
                 <tr class="table-dark">
                     <th scope="col">User</th>
                     {% if request.user.is_staff %}
