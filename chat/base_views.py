@@ -18,10 +18,7 @@ def user_management_list_view(users_list_filed_name):
                 except ObjectDoesNotExist:
                     raise Http404
 
-                try:
-                    getattr(request.user, users_list_filed_name).remove(excluding_user)
-                except AttributeError:
-                    return
+                getattr(request.user, users_list_filed_name).remove(excluding_user)
 
             managed_user_list = getattr(request.user, users_list_filed_name).all()
             return view_func(request, managed_user_list)

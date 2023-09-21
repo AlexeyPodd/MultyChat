@@ -11,6 +11,7 @@ let chatOwnerUsername = chatOwnerSelect ? chatOwnerSelect.value : userUsername;
 const isAdminTable = bansTableHead.firstElementChild.children[1].textContent=="Chat Owner";
 const expiredMark = "Expired";
 const indefiniteMark = 'Indefinite';
+const inAllChatsMark = 'All Chats';
 
 const dateTimeFormat = {
 	weekday: 'short',
@@ -109,7 +110,7 @@ function createBansTableRow(rowData, timeNow, allBans=false, isSecondaryBan=fals
 		unbanButton.type = 'button';
 		unbanButton.className = "btn btn-sm btn-info btn-unban";
 		unbanButton.setAttribute('data-banned-username', rowData.banned_user__username);
-		unbanButton.setAttribute('data-ban-chat-owner', rowData.chat_owner__username);
+		unbanButton.setAttribute('data-ban-chat-owner', rowData.chat_owner__username ? rowData.chat_owner__username : '');
 		unbanButton.textContent = 'Unban';
 		cellInnerUnbunButton.append(unbanButton);
 	}
@@ -124,7 +125,7 @@ function createBansTableRow(rowData, timeNow, allBans=false, isSecondaryBan=fals
 
 	if (isAdminTable) {
 		const cellOwnerUsername = document.createElement('td');
-		cellOwnerUsername.textContent = rowData.chat_owner__username;
+		cellOwnerUsername.textContent = rowData.chat_owner__username ? rowData.chat_owner__username : inAllChatsMark;
 
 		cellUsername.after(cellOwnerUsername);
 
@@ -144,7 +145,7 @@ function createBansTableRow(rowData, timeNow, allBans=false, isSecondaryBan=fals
 			delBanButton.className = "btn btn-sm btn-danger btn-del-ban";
 			delBanButton.setAttribute('data-ban-id', rowData.id);
 			delBanButton.setAttribute('data-banned-username', rowData.banned_user__username);
-			delBanButton.setAttribute('data-ban-chat-owner', rowData.chat_owner__username);
+			delBanButton.setAttribute('data-ban-chat-owner', rowData.chat_owner__username ? rowData.chat_owner__username : '');
 			delBanButton.textContent = 'Delete';
 			cellInnerUnbunButton.append(delBanButton);
 		}
@@ -168,8 +169,11 @@ function unbanButtonListener(event) {
 
 	const bannedUsername = event.target.getAttribute('data-banned-username');
 	const chatOwnerUsernameInner = chatOwnerUsername ? chatOwnerUsername : event.target.getAttribute('data-ban-chat-owner');
-
-	if (!window.confirm(`Are you sure you want to unban ${bannedUsername} in ${chatOwnerUsernameInner == userUsername ? 'your' : chatOwnerUsernameInner+'\'s'} chat?`)) return;
+	
+	ownerName = chatOwnerUsernameInner == userUsername ? 'your' : chatOwnerUsernameInner;
+	console.log(ownerName, typeof ownerName);
+	askingName = ownerName ? ownerName : inAllChatsMark;
+	if (!window.confirm(`Are you sure you want to unban ${bannedUsername} in ${askingName}`)) return;
 
 	$.ajax({
         type: 'POST',
@@ -187,7 +191,7 @@ function unbanButtonListener(event) {
             	rows_to_remove.push(row);
             	row = row.nextElementSibling;
             }
-            while (isAdminTable && row.firstElementChild.textContent == bannedUsername && row.children[1].textContent == chatOwnerUsernameInner && row.children[2].textContent != expiredMark);
+            while (isAdminTable && row && row.firstElementChild.textContent == bannedUsername && row.children[1].textContent == chatOwnerUsernameInner && row.children[2].textContent != expiredMark);
             
             rows_to_remove.forEach((element) => element.remove());
         },

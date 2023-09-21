@@ -112,7 +112,7 @@ class BannedListView(LoginRequiredMixin, ListView):
 
 def unban_user_ajax_view(request):
     """
-    View for deleting bans of user in chat. None for chat owner == in all chats (for admins).
+    View for deleting bans of user in chat. Empty string for chat owner == in all chats (for admins).
     If ban id specified - will be deleted just specified ban, otherwise - all active bans in specified chat for user.
     """
 
@@ -129,21 +129,35 @@ def unban_user_ajax_view(request):
 
         bans = Ban.objects.filter(id=int(ban_id))
         banned_username = bans[0].banned_user.username
+
     else:
         banned_username = request.POST.get('bannedUsername')
         owner_username = request.POST.get('chatOwnerUsername')
+
+        if not owner_username:
+            # unban in all chats can only admin
+            if not request.user.is_staff:
+                return JsonResponse({'error': 'Permission Denied'}, status=403)
+            owner = None
+        else:
+            try:
+                owner = User.objects.get(username=owner_username)
+            except ObjectDoesNotExist:
+                return JsonResponse({'error': 'Not Founded', 'model': 'User'}, status=404)
+
         try:
             banned = User.objects.get(username=banned_username)
-            owner = User.objects.get(username=owner_username)
         except ObjectDoesNotExist:
             return JsonResponse({'error': 'Not Founded', 'model': 'User'}, status=404)
 
-        if not (request.user.is_staff or request.user == owner or request.user in owner.moderators.all()):
+        # if user has privilege to unban in this chat
+        if not (request.user.is_staff or owner and request.user == owner or request.user in owner.moderators.all()):
             return JsonResponse({'error': 'Permission Denied'}, status=403)
 
         bans = banned.bans.filter(Q(time_end=None) | Q(time_end__gt=timezone.now()), chat_owner=owner)
 
-        if not request.user.is_staff and request.user != owner and bans.filter(time_end__isnull=True).exists():
+        # if user is moder (not admin or owner) and ban is indefinite
+        if not request.user.is_staff and owner and request.user != owner and bans.filter(time_end__isnull=True).exists():
             return JsonResponse({'error': 'Permission Denied'}, status=403)
 
     if not bans:
