@@ -1,5 +1,5 @@
 import redis
-from typing import TypedDict, List
+from typing import TypedDict, List, Iterable
 
 from account.models import User
 from multychats.settings import REDIS_HOST, REDIS_PORT, LENGTH_OF_CHAT_LOG, CHAT_LOGGING_DATA_TYPES, \
@@ -64,8 +64,8 @@ class RedisChatLogInterface:
         return log_data
 
     @staticmethod
-    def _write_log_data(chat_owner_username: str, log_data: str) -> None:
-        for log_type, log_data in zip(CHAT_LOGGING_DATA_TYPES_PLURAL, log_data):
+    def _write_log_data(chat_owner_username: str, log_data_list: Iterable[Iterable[str]]) -> None:
+        for log_type, log_data in zip(CHAT_LOGGING_DATA_TYPES_PLURAL, log_data_list):
             redis_instance.rpush(f"chat__{chat_owner_username}__{log_type}", *log_data)
 
     @staticmethod

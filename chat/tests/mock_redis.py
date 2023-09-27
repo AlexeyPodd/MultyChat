@@ -33,7 +33,7 @@ class MockRedis:
         if isinstance(lst, list):
             return len(self.cache[key])
         else:
-            raise TypeError
+            return 0
 
     def ltrim(self, key, start, end):
         if end == -1:
@@ -44,6 +44,8 @@ class MockRedis:
         lst = self.cache.get(key)
         if isinstance(lst, list):
             self.cache[key] = self.cache[key][start:end]
+            return True
+        elif lst is None:
             return True
         else:
             raise TypeError
@@ -57,6 +59,8 @@ class MockRedis:
         lst = self.cache.get(key)
         if isinstance(lst, list):
             return self.cache[key][start:end]
+        elif lst is None:
+            return []
         else:
             raise TypeError
 
@@ -73,6 +77,29 @@ class MockRedis:
 
 
 def replace_redis_with_mock(test_func):
+    """
+    Decorator for mocking redis_instance.
+    If needed more redis methods - you should write them in MockRedis class above, and add below as Mock side effect.
+    """
+    @patch('chat.redis_interface.redis_instance')
+    def wrapper(test_obj, mock_redis):
+        mock_redis_object = MockRedis()
+
+        mock_redis.get = Mock(side_effect=mock_redis_object.get)
+        mock_redis.set = Mock(side_effect=mock_redis_object.set)
+        mock_redis.expire = Mock(side_effect=mock_redis_object.expire)
+        mock_redis.rpush = Mock(side_effect=mock_redis_object.rpush)
+        mock_redis.llen = Mock(side_effect=mock_redis_object.llen)
+        mock_redis.ltrim = Mock(side_effect=mock_redis_object.ltrim)
+        mock_redis.lrange = Mock(side_effect=mock_redis_object.lrange)
+        mock_redis.delete = Mock(side_effect=mock_redis_object.delete)
+        mock_redis.keys = Mock(side_effect=mock_redis_object.keys)
+
+        return test_func(test_obj)
+    return wrapper
+
+
+def replace_redis_with_mock_and_pass_it_to_test_func(test_func):
     """
     Decorator for mocking redis_instance.
     If needed more redis methods - you should write them in MockRedis class above, and add below as Mock side effect.

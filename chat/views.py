@@ -127,8 +127,11 @@ def unban_user_ajax_view(request):
         if not request.user.is_staff:
             return JsonResponse({'error': 'Permission Denied'}, status=403)
 
+        if not ban_id.isdigit():
+            return JsonResponse({'error': 'Id was not Integer'}, status=400)
+
         bans = Ban.objects.filter(id=int(ban_id))
-        banned_username = bans[0].banned_user.username
+        banned_username = bans[0].banned_user.username if bans else None
 
     else:
         banned_username = request.POST.get('bannedUsername')
