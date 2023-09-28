@@ -153,7 +153,7 @@ def unban_user_ajax_view(request):
         except ObjectDoesNotExist:
             return JsonResponse({'error': 'Not Founded', 'model': 'User'}, status=404)
 
-        # if user has privilege to unban in this chat
+        # if user does not have privilege to unban in this chat
         if not (request.user.is_staff or owner and request.user == owner or request.user in owner.moderators.all()):
             return JsonResponse({'error': 'Permission Denied'}, status=403)
 
@@ -184,6 +184,7 @@ def get_chat_banned_info_ajax_view(request):
     except ObjectDoesNotExist:
         return JsonResponse({'error': 'Not Founded', 'model': 'User'}, status=404)
 
+    # Checking permission (admin, owner or moderator)
     if not (request.user.is_staff or request.user == owner or request.user in owner.moderators.all()):
         return JsonResponse({'error': 'Permission Denied'}, status=403)
 
@@ -209,7 +210,7 @@ def get_banned_admin_info_ajax_view(request):
     owner_username = request.GET.get('owner')
     banned_username = request.GET.get('user')
     try:
-        get_all_bans = bool(int(request.GET.get('all')))
+        get_all_bans = bool(int(request.GET.get('all', 0)))
     except ValueError:
         return JsonResponse({'error': 'Non-Numeric Parameter \'all\''}, status=400)
 

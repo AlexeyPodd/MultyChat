@@ -1,5 +1,8 @@
+import re
 from datetime import timedelta
+from typing import List
 
+from django.db.models import F
 from django.urls import reverse
 from django.utils import timezone
 
@@ -226,11 +229,17 @@ class TestBannedListView(TestView):
 class TestUnbanAjaxView(TestView):
     url_name = 'chat:ajax-unban-user'
 
+    another_username = 'another_user'
+    another_email = 'another_email'
+    another_password = 'another_password'
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.banned_user = User.objects.create_user(username='banned_test_user',
                                                    email='banned@gmail.com', password='123')
+        cls.another_user = User.objects.create_user(username=cls.another_username, email=cls.another_email,
+                                                    password=cls.another_password)
 
     def test_GET_not_allowed(self):
         self.client.login(username=self.dummy_username, password=self.dummy_password)
@@ -315,16 +324,315 @@ class TestUnbanAjaxView(TestView):
 
         self.assertEqual(response.status_code, 404)
 
-    # def test_POST_deletes_all_bans_of_specified_user_in_specified_chat(self):
-    #     Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user,
-    #                        time_end=timezone.now() + timedelta(minutes=20))
-    #     Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user,
-    #                        time_end=timezone.now() + timedelta(days=2))
-    #
-    #     self.client.login(username=self.dummy_username, password=self.dummy_password)
-    #     response = self.client.post(self.url, data={'bannedUsername': self.banned_user.username,
-    #                                                 'chatOwnerUsername': self.user.username})
-    #
-    #     self.assertEqual(response.status_code, 200)
-    #     self.assertJSONEqual(str(response.content, encoding='utf8'), {'user_unbanned': self.banned_user.username})
-    #     self.assertEqual(len(Ban.objects.count()), 0)
+    def test_POST_tries_to_delete_all_bans_of_specified_user_in_specified_chat_but_have_no_permission(self):
+        self.client.login(username=self.another_username, password=self.another_password)
+        response = self.client.post(self.url, data={'bannedUsername': self.banned_user.username,
+                                                    'chatOwnerUsername': self.user.username})
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_POST_tries_to_delete_all_indefinite_bans_of_specified_user_in_specified_chat_by_moderator(self):
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user)
+        self.user.moderators.add(self.another_user)
+
+        self.client.login(username=self.another_username, password=self.another_password)
+        response = self.client.post(self.url, data={'bannedUsername': self.banned_user.username,
+                                                    'chatOwnerUsername': self.user.username})
+
+        self.assertEqual(response.status_code, 403)
+
+        self.user.moderators.remove(self.another_user)
+
+    def test_POST_tries_to_delete_all_bans_of_specified_user_in_specified_chat_by_moderator_but_there_is_no_bans(self):
+        self.user.moderators.add(self.another_user)
+
+        self.client.login(username=self.another_username, password=self.another_password)
+        response = self.client.post(self.url, data={'bannedUsername': self.banned_user.username,
+                                                    'chatOwnerUsername': self.user.username})
+
+        self.assertEqual(response.status_code, 404)
+
+        self.user.moderators.remove(self.another_user)
+
+    def test_POST_deletes_all_bans_of_specified_user_in_specified_chat_by_moderator(self):
+        self.user.moderators.add(self.another_user)
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user,
+                           time_end=timezone.now() + timedelta(minutes=20))
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user,
+                           time_end=timezone.now() + timedelta(minutes=20))
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user,
+                           time_end=timezone.now() + timedelta(days=2))
+
+        self.client.login(username=self.another_username, password=self.another_password)
+        response = self.client.post(self.url, data={'bannedUsername': self.banned_user.username,
+                                                    'chatOwnerUsername': self.user.username})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), {'user_unbanned': self.banned_user.username})
+        self.assertFalse(self.banned_user.bans.exists())
+
+        self.user.moderators.remove(self.another_user)
+
+    def test_POST_deletes_all_bans_of_specified_user_in_specified_chat_by_owner(self):
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user)
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user,
+                           time_end=timezone.now() + timedelta(minutes=20))
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user,
+                           time_end=timezone.now() + timedelta(days=2))
+
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.post(self.url, data={'bannedUsername': self.banned_user.username,
+                                                    'chatOwnerUsername': self.user.username})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), {'user_unbanned': self.banned_user.username})
+        self.assertFalse(self.banned_user.bans.exists())
+
+    def test_POST_deletes_all_bans_of_specified_user_in_specified_chat_by_admin(self):
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user)
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user,
+                           time_end=timezone.now() + timedelta(minutes=20))
+        Ban.objects.create(chat_owner=self.user, banned_by=self.user, banned_user=self.banned_user,
+                           time_end=timezone.now() + timedelta(days=2))
+        self.another_user.is_staff = True
+        self.another_user.save()
+
+        self.client.login(username=self.another_username, password=self.another_password)
+        response = self.client.post(self.url, data={'bannedUsername': self.banned_user.username,
+                                                    'chatOwnerUsername': self.user.username})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), {'user_unbanned': self.banned_user.username})
+        self.assertFalse(self.banned_user.bans.exists())
+
+        self.another_user.is_staff = False
+        self.another_user.save()
+
+
+class TestGetChatBannedInfoAjaxView(TestView):
+    url_name = 'chat:ajax-banned-list'
+
+    another_username = 'another_user'
+    another_email = 'another_email'
+    another_password = 'another_password'
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.banned_user = User.objects.create_user(username='banned_test_user',
+                                                   email='banned@gmail.com', password='123')
+        cls.another_user = User.objects.create_user(username=cls.another_username, email=cls.another_email,
+                                                    password=cls.another_password)
+        cls.url += f'?owner={cls.dummy_username}'
+
+        cls.b1 = Ban.objects.create(chat_owner=cls.user, banned_by=cls.user, banned_user=cls.banned_user)
+        Ban.objects.create(chat_owner=cls.user, banned_by=cls.user, banned_user=cls.banned_user,
+                           time_end=timezone.now() + timedelta(minutes=20))
+        cls.b2 = Ban.objects.create(chat_owner=cls.user, banned_by=cls.user, banned_user=cls.another_user,
+                                    time_end=timezone.now() + timedelta(days=2))
+
+        expected_queryset = Ban.objects.filter(pk__in=[cls.b1.pk, cls.b2.pk]).order_by('banned_user')
+        cls.expected_data = {"data": list(expected_queryset.values('banned_user__username', 'time_start',
+                                                                   'time_end', 'banned_by__username'))}
+        for data in cls.expected_data['data']:
+            data['time_start'] = re.sub(r'[0-9]{3}\+00:00', 'Z', data['time_start'].isoformat())
+            if data['time_end']:
+                data['time_end'] = re.sub(r'[0-9]{3}\+00:00', 'Z', data['time_end'].isoformat())
+
+    def test_POST_not_allowed(self):
+        response = self.client.post(self.url, data={})
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_GET_not_logged_in(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_GET_not_existing_chat_owner(self):
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + '123dff')
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_GET_have_no_permission(self):
+        self.client.login(username=self.another_username, password=self.another_password)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_GET_by_owner(self):
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), self.expected_data)
+
+    def test_GET_by_admin(self):
+        self.another_user.is_staff = True
+        self.another_user.save()
+
+        self.client.login(username=self.another_username, password=self.another_password)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), self.expected_data)
+
+        self.another_user.is_staff = False
+        self.another_user.save()
+
+    def test_GET_by_moderator(self):
+        self.user.moderators.add(self.another_user)
+
+        self.client.login(username=self.another_username, password=self.another_password)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), self.expected_data)
+
+        self.user.moderators.remove(self.another_user)
+
+
+class TestGetBannedAdminInfoAjaxView(TestView):
+    url_name = 'chat:ajax-search-admin-banned-list'
+
+    another_username = 'another_user'
+    another_email = 'another_email'
+    another_password = 'another_password'
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user.is_staff = True
+        cls.user.save()
+        cls.banned_user = User.objects.create_user(username='banned_test_user',
+                                                   email='banned@gmail.com', password='123')
+        cls.another_user = User.objects.create_user(username=cls.another_username, email=cls.another_email,
+                                                    password=cls.another_password)
+
+        cls.b1 = Ban.objects.create(chat_owner=cls.user, banned_by=cls.user, banned_user=cls.banned_user)
+        cls.b2 = Ban.objects.create(chat_owner=cls.user, banned_by=cls.user, banned_user=cls.banned_user,
+                                    time_end=timezone.now() + timedelta(minutes=20))
+        cls.b3 = Ban.objects.create(chat_owner=cls.another_user, banned_by=cls.user, banned_user=cls.banned_user,
+                                    time_end=timezone.now() + timedelta(hours=20))
+        cls.b4 = Ban.objects.create(chat_owner=cls.user, banned_by=cls.user, banned_user=cls.another_user,
+                                    time_end=timezone.now() + timedelta(days=2))
+
+    @staticmethod
+    def _get_expected_data(pks: List[int]):
+        expected_queryset = (Ban.objects.filter(pk__in=pks)
+                             .order_by('banned_user', 'chat_owner', F('time_end').desc(nulls_first=True)))
+        expected_data = {"data": list(expected_queryset.values('id', 'banned_user__username', 'chat_owner__username',
+                                                               'time_start', 'time_end', 'banned_by__username'))}
+        for data in expected_data['data']:
+            data['time_start'] = re.sub(r'[0-9]{3}\+00:00', 'Z', data['time_start'].isoformat())
+            if data['time_end']:
+                data['time_end'] = re.sub(r'[0-9]{3}\+00:00', 'Z', data['time_end'].isoformat())
+
+        return expected_data
+
+    def test_POST_not_allowed(self):
+        response = self.client.post(self.url, data={})
+
+        self.assertEqual(response.status_code, 405)
+
+    def test_GET_not_logged_in(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_GET_not_admin(self):
+        self.user.is_staff = False
+        self.user.save()
+
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 403)
+
+        self.user.is_staff = True
+        self.user.save()
+
+    def test_GET_not_digit_all_bans_parameter(self):
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + f'?owner={self.dummy_username}&user={self.banned_user.username}&all=t')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), {'error': 'Non-Numeric Parameter \'all\''})
+
+    def test_GET_no_owner_user_and_banned_user_parameters(self):
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + '?all=0')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), {'error': 'No Search Criteria'})
+
+    def test_GET_not_existing_owner_user(self):
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + f'?owner={self.dummy_username + "ttt"}')
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(str(response.content, encoding='utf8'),
+                             {'error': 'Not Founded', 'model': 'User (chat owner)'})
+
+    def test_GET_not_existing_banned_user(self):
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + f'?user={self.banned_user.username + "ttt"}')
+
+        self.assertEqual(response.status_code, 404)
+        self.assertJSONEqual(str(response.content, encoding='utf8'),
+                             {'error': 'Not Founded', 'model': 'User (banned user)'})
+
+    def test_GET_queryset_specified_owner_and_banned_all_bans(self):
+        expected_data = self._get_expected_data([self.b1.pk, self.b2.pk])
+
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + f'?owner={self.dummy_username}&user={self.banned_user.username}&all=1')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), expected_data)
+
+    def test_GET_queryset_specified_owner_and_banned_not_all_bans(self):
+        expected_data = self._get_expected_data([self.b1.pk])
+
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + f'?owner={self.dummy_username}&user={self.banned_user.username}&all=0')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), expected_data)
+
+    def test_GET_queryset_specified_owner_all_bans(self):
+        expected_data = self._get_expected_data([self.b1.pk, self.b2.pk, self.b4.pk])
+
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + f'?owner={self.dummy_username}&all=1')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), expected_data)
+
+    def test_GET_queryset_specified_owner_not_all_bans(self):
+        expected_data = self._get_expected_data([self.b1.pk, self.b4.pk])
+
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + f'?owner={self.dummy_username}&all=0')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), expected_data)
+
+    def test_GET_queryset_specified_user_all_bans(self):
+        expected_data = self._get_expected_data([self.b1.pk, self.b2.pk, self.b3.pk])
+
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + f'?user={self.banned_user.username}&all=1')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), expected_data)
+
+    def test_GET_queryset_specified_user_not_all_bans(self):
+        expected_data = self._get_expected_data([self.b1.pk, self.b3.pk])
+
+        self.client.login(username=self.dummy_username, password=self.dummy_password)
+        response = self.client.get(self.url + f'?user={self.banned_user.username}&all=0')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertJSONEqual(str(response.content, encoding='utf8'), expected_data)
