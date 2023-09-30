@@ -134,7 +134,7 @@ class TestModeratorListView(TestView):
 
         self.assertRedirects(response, reverse('account:login') + '?next=' + self.url)
 
-    @replace_redis_with_mock
+    @replace_redis_with_mock()
     def test_POST_removes_user_from_moder_list(self):
         self.user.moderators.add(self.second_user)
         self.client.login(username=self.dummy_username, password=self.dummy_password)
@@ -146,7 +146,7 @@ class TestModeratorListView(TestView):
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'chat/manage_user_list.html')
 
-    @replace_redis_with_mock
+    @replace_redis_with_mock()
     def test_POST_no_data(self):
         self.user.moderators.add(self.second_user)
         self.client.login(username=self.dummy_username, password=self.dummy_password)
@@ -156,7 +156,7 @@ class TestModeratorListView(TestView):
         self.assertEqual(response.status_code, 404)
         self.assertTrue(self.user.moderators.filter(pk=self.second_user.pk).exists())
 
-    @replace_redis_with_mock
+    @replace_redis_with_mock()
     def test_POST_tries_to_remove_not_existing_user(self):
         self.client.login(username=self.dummy_username, password=self.dummy_password)
 
@@ -164,7 +164,7 @@ class TestModeratorListView(TestView):
 
         self.assertEqual(response.status_code, 404)
 
-    @replace_redis_with_mock
+    @replace_redis_with_mock()
     def test_POST_tries_to_remove_not_moderator_user(self):
         self.client.login(username=self.dummy_username, password=self.dummy_password)
 

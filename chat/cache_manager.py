@@ -1,4 +1,3 @@
-from channels.db import database_sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 
 from account.models import User
@@ -13,7 +12,7 @@ async def get_or_set_from_db_chat_open_status(owner_username):
 
     else:
         try:
-            chat_owner = await database_sync_to_async(User.objects.get)(username=owner_username)
+            chat_owner = await User.objects.aget(username=owner_username)
         except ObjectDoesNotExist:
             return False
 

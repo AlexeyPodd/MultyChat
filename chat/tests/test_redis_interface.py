@@ -2,7 +2,7 @@ from django.test import TestCase, SimpleTestCase
 
 from account.models import User
 from multychats.settings import LENGTH_OF_CHAT_LOG, CHAT_LOGGING_DATA_TYPES_PLURAL
-from .mock_redis import replace_redis_with_mock_and_pass_it_to_test_func
+from .mock_redis import replace_redis_with_mock
 from ..redis_interface import RedisChatStatusInterface, RedisChatLogInterface
 
 
@@ -12,7 +12,7 @@ class TestRedisChatStatusInterface(TestCase):
         super().setUpClass()
         cls.user = User.objects.create_user(username='test_mock', password='dsogpdopfg', email='testttt@gamil.com')
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test_update_chat_state_open(self, mock_redis_instance):
         self.user.is_running_chat = True
 
@@ -20,7 +20,7 @@ class TestRedisChatStatusInterface(TestCase):
 
         self.assertEqual(mock_redis_instance.cache[f"chat__{self.user.username}__is_running_chat"], 1)
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test_update_chat_state_close(self, mock_redis_instance):
         self.user.is_running_chat = False
 
@@ -35,7 +35,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
     author_status = 'some_status'
     message = 'message'
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test__pop_all_data(self, mock_redis_instance):
         cached_data = {
             "author_usernames": [
@@ -70,7 +70,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
         for i, data_list in enumerate(data):
             self.assertEqual(data_list, cached_data[CHAT_LOGGING_DATA_TYPES_PLURAL[i]])
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test__pop_all_data_from_empty_cache(self, mock_redis_instance):
         empty_data = RedisChatLogInterface._pop_all_data(chat_owner_username='test')
 
@@ -80,7 +80,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
             self.assertTrue(isinstance(data_list, list))
             self.assertEqual(len(data_list), 0)
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test__write_log_data(self, mock_redis_instance):
         cached_data = {
             "author_usernames": [
@@ -114,7 +114,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
             self.assertEqual(mock_redis_instance.cache[f"chat__{self.chat_owner_username}__{data_type}"],
                              cached_data[data_type])
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test__get_logged_chat_owner_usernames(self, mock_redis_instance):
         usernames = ['test', 'user_test', 'another_user']
         for username in usernames:
@@ -124,7 +124,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
 
         self.assertEqual(set(usernames), set(cached_chat_owners))
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test_log_chat_message_one_message(self, mock_redis_instance):
         RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
                                                author_username=self.author_username,
@@ -138,7 +138,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
         self.assertEqual(mock_redis_instance.cache[f"chat__{self.chat_owner_username}__messages"][0],
                          self.message)
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test_log_chat_message_more_then_cache_capacity(self, mock_redis_instance):
         for i in range(LENGTH_OF_CHAT_LOG + 5):
             RedisChatLogInterface.log_chat_message(chat_owner_username=self.chat_owner_username,
@@ -155,7 +155,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
         self.assertEqual(mock_redis_instance.cache[f"chat__{self.chat_owner_username}__messages"][0],
                          self.message + str(5))
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test_get_chat_log_data(self, mock_redis_instance):
         cached_data = {
             "author_usernames": [
@@ -191,7 +191,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
             self.assertEqual(cached_data["author_statuses"][i], msg_data['author_status'])
             self.assertEqual(cached_data["messages"][i], msg_data['message'])
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test_delete_user_messages_in_every_chat(self, mock_redis_instance):
         chat_owners = [self.chat_owner_username, self.author_username, 'user_3']
         cached_data_1 = {
@@ -266,7 +266,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
             self.assertEqual(len(mock_redis_instance.cache[f"chat__{chat_owner_username}__author_usernames"]),
                              len(tuple(filter(lambda u: u != self.author_username, cached_data["author_usernames"]))))
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test_delete_user_messages_in_specific_chat(self, mock_redis_instance):
         chat_owners = [self.chat_owner_username, self.author_username, 'user_3']
         cached_data_1 = {
@@ -352,7 +352,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
             self.assertEqual(len(mock_redis_instance.cache[f"chat__{chat_owner_username}__author_usernames"]),
                              len(cached_data["author_usernames"]))
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test_change_user_status(self, mock_redis_instance):
         cached_data = {
             "author_usernames": [
@@ -392,7 +392,7 @@ class TestRedisChatLogInterface(SimpleTestCase):
         self.assertEqual(mock_redis_instance.cache[f"chat__{self.chat_owner_username}__author_statuses"],
                          expected_statuses)
 
-    @replace_redis_with_mock_and_pass_it_to_test_func
+    @replace_redis_with_mock(pass_mock_to_func=True)
     def test_change_user_status_with_empty_log(self, mock_redis_instance):
         new_status = 'new_status'
         RedisChatLogInterface.change_user_status(self.chat_owner_username, self.author_username, new_status=new_status)

@@ -1,4 +1,5 @@
 import re
+from functools import wraps
 from unittest.mock import patch, Mock
 
 
@@ -76,47 +77,45 @@ class MockRedis:
         return list(filter(lambda k: re.fullmatch(r, k), all_keys))
 
 
-def replace_redis_with_mock(test_func):
+def set_redis_mock(mock_redis):
     """
-    Decorator for mocking redis_instance.
     If needed more redis methods - you should write them in MockRedis class above, and add below as Mock side effect.
     """
-    @patch('chat.redis_interface.redis_instance')
-    def wrapper(test_obj, mock_redis):
-        mock_redis_object = MockRedis()
+    mock_redis_object = MockRedis()
 
-        mock_redis.get = Mock(side_effect=mock_redis_object.get)
-        mock_redis.set = Mock(side_effect=mock_redis_object.set)
-        mock_redis.expire = Mock(side_effect=mock_redis_object.expire)
-        mock_redis.rpush = Mock(side_effect=mock_redis_object.rpush)
-        mock_redis.llen = Mock(side_effect=mock_redis_object.llen)
-        mock_redis.ltrim = Mock(side_effect=mock_redis_object.ltrim)
-        mock_redis.lrange = Mock(side_effect=mock_redis_object.lrange)
-        mock_redis.delete = Mock(side_effect=mock_redis_object.delete)
-        mock_redis.keys = Mock(side_effect=mock_redis_object.keys)
+    mock_redis.get = Mock(side_effect=mock_redis_object.get)
+    mock_redis.set = Mock(side_effect=mock_redis_object.set)
+    mock_redis.expire = Mock(side_effect=mock_redis_object.expire)
+    mock_redis.rpush = Mock(side_effect=mock_redis_object.rpush)
+    mock_redis.llen = Mock(side_effect=mock_redis_object.llen)
+    mock_redis.ltrim = Mock(side_effect=mock_redis_object.ltrim)
+    mock_redis.lrange = Mock(side_effect=mock_redis_object.lrange)
+    mock_redis.delete = Mock(side_effect=mock_redis_object.delete)
+    mock_redis.keys = Mock(side_effect=mock_redis_object.keys)
 
-        return test_func(test_obj)
-    return wrapper
+    return mock_redis_object
 
 
-def replace_redis_with_mock_and_pass_it_to_test_func(test_func):
+def replace_redis_with_mock(asynchronous=False, pass_mock_to_func=False):
     """
     Decorator for mocking redis_instance.
-    If needed more redis methods - you should write them in MockRedis class above, and add below as Mock side effect.
     """
-    @patch('chat.redis_interface.redis_instance')
-    def wrapper(test_obj, mock_redis):
-        mock_redis_object = MockRedis()
+    def wrapper(test_func):
+        if asynchronous:
+            @wraps(test_func)
+            @patch('chat.redis_interface.redis_instance')
+            async def wrapped(test_obj, mock_redis):
+                mock_redis_object = set_redis_mock(mock_redis)
+                args = [test_obj, mock_redis_object] if pass_mock_to_func else [test_obj]
+                return await test_func(*args)
 
-        mock_redis.get = Mock(side_effect=mock_redis_object.get)
-        mock_redis.set = Mock(side_effect=mock_redis_object.set)
-        mock_redis.expire = Mock(side_effect=mock_redis_object.expire)
-        mock_redis.rpush = Mock(side_effect=mock_redis_object.rpush)
-        mock_redis.llen = Mock(side_effect=mock_redis_object.llen)
-        mock_redis.ltrim = Mock(side_effect=mock_redis_object.ltrim)
-        mock_redis.lrange = Mock(side_effect=mock_redis_object.lrange)
-        mock_redis.delete = Mock(side_effect=mock_redis_object.delete)
-        mock_redis.keys = Mock(side_effect=mock_redis_object.keys)
+        else:
+            @wraps(test_func)
+            @patch('chat.redis_interface.redis_instance')
+            def wrapped(test_obj, mock_redis):
+                mock_redis_object = set_redis_mock(mock_redis)
+                args = [test_obj, mock_redis_object] if pass_mock_to_func else [test_obj]
+                return test_func(*args)
 
-        return test_func(test_obj, mock_redis_object)
+        return wrapped
     return wrapper
