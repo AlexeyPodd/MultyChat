@@ -25,6 +25,8 @@ class HomeView(ListView):
 
 @login_required
 def chat_room_view(request, chat_owner_slug):
+    """Represents chat room."""
+
     chat_owner = get_object_or_404(User.objects.prefetch_related('moderators', 'black_listed_users'),
                                    username_slug=chat_owner_slug)
     black_list_usernames = request.user.black_listed_users.values_list('username', flat=True)
@@ -75,6 +77,8 @@ def moderator_list_view(request, managed_user_list):
 
 
 class BannedListView(LoginRequiredMixin, ListView):
+    """View for managing banned users and bans itself"""
+
     model = Ban
     template_name = 'chat/banned_users_list.html'
     context_object_name = 'bans'
@@ -171,6 +175,11 @@ def unban_user_ajax_view(request):
 
 
 def get_chat_banned_info_ajax_view(request):
+    """
+    View for ajax request of banned users in some chat.
+    Returns list of data of unique users with latest expire date ban.
+    """
+
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 
@@ -198,6 +207,12 @@ def get_chat_banned_info_ajax_view(request):
 
 
 def get_banned_admin_info_ajax_view(request):
+    """
+    View for admin of the site, for ajax request of bans.
+    Returns list of data of bans, according to request:
+    (all or just active - of specific chat, or of specific user, or of specific user in specific chat).
+    """
+
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
 

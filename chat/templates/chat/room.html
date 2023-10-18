@@ -1,8 +1,8 @@
-{% extends 'chat/base/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block head_extensions %}
-<link type="text/css" href="{% static 'css/room.css' %}" rel="stylesheet">
+<link type="text/css" href="{% static 'chat/css/room.css' %}" rel="stylesheet">
 {% endblock %}
 
 {% block content %}
@@ -45,6 +45,6 @@
 {{ request.user.is_staff|json_script:"admin-privileges-granted" }}
 {{ request.user.is_superuser|json_script:"superuser-privileges-granted" }}
 {{ user_statuses|json_script:"user-statuses" }}
-<script src="{% static 'JS/websocket_messaging.js' %}"></script>
-<script src="{% static 'JS/chat_menu.js' %}"></script>
+<script src="{% static 'chat/JS/websocket_messaging.js' %}"></script>
+<script src="{% static 'chat/JS/chat_menu.js' %}"></script>
 {% endblock %}

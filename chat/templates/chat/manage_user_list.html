@@ -1,4 +1,4 @@
-{% extends 'chat/base/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block content %}
@@ -20,5 +20,5 @@
 
 {% block additional_java_script %}
 {% csrf_token %}
-<script src="{% static 'JS/manage_user_list.js' %}"></script>
+<script src="{% static 'chat/JS/manage_user_list.js' %}"></script>
 {% endblock %}

@@ -8,6 +8,7 @@ from account.models import User
 
 
 def user_management_list_view(users_list_filed_name):
+    """Base view decorator for managing some list of related users with current user (but not for banned users)"""
     def wrapper(view_func):
         @wraps(view_func)
         @login_required

@@ -1,4 +1,4 @@
-{% extends 'chat/base/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
 {% block head_extensions %}
@@ -68,6 +68,6 @@
 {% url 'chat:ajax-banned-list' as banned_moder_list_url %}{{ banned_moder_list_url|json_script:"banned-moder-data-list-url" }}
 {{ request.user.username|json_script:"username" }}
 {% if request.user.is_staff %}{% url 'chat:ajax-search-admin-banned-list' as banned_admin_list_url %}{{ banned_admin_list_url|json_script:"banned-admin-data-list-url" }}{% endif %}
-<script src="{% static 'JS/manage_ban_list.js' %}"></script>
-{% if request.user.is_staff %}<script src="{% static 'JS/admin_ban_list.js' %}"></script>{% endif %}
+<script src="{% static 'chat/JS/manage_ban_list.js' %}"></script>
+{% if request.user.is_staff %}<script src="{% static 'chat/JS/admin_ban_list.js' %}"></script>{% endif %}
 {% endblock %}

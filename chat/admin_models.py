@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils import timezone
 
-from chat.admin_filters import DecadeBornListFilter
+from chat.admin_filters import ActiveBanListFilter
 
 
 class BanAdmin(admin.ModelAdmin):
@@ -9,7 +9,7 @@ class BanAdmin(admin.ModelAdmin):
                     'time_end', 'get_duration', 'get_remaining')
     list_display_links = ('id',)
     search_fields = ('banned_user__username', 'chat_owner__username', 'banned_by__username')
-    list_filter = ('time_start', 'time_end', DecadeBornListFilter)
+    list_filter = ('time_start', 'time_end', ActiveBanListFilter)
     fields = ('id', 'banned_user', 'chat_owner', 'banned_by', 'time_start', 'time_end', 'get_duration', 'get_remaining')
     readonly_fields = ('id', 'banned_user', 'chat_owner', 'banned_by', 'time_start', 'get_duration', 'get_remaining')
 

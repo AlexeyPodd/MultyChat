@@ -2,7 +2,8 @@ from django.contrib import admin
 from django.utils import timezone
 
 
-class DecadeBornListFilter(admin.SimpleListFilter):
+class ActiveBanListFilter(admin.SimpleListFilter):
+    """Admin filter for separation active and expired bans"""
     title = "active bans"
     parameter_name = "active"
 
