@@ -10,7 +10,7 @@ chat owners, prohibiting them from opening the chat, as well as ban users in all
 possibly for an indefinite period. Each user can add any other user to his black list, and see his messages no more.
 
 ### Managing bans
-Chat owner or appointed moderator can ban users right in chat. They can unban a banned user on the banana management
+Chat owner or appointed moderator can ban users right in chat. They can unban a banned user on the ban management
 page.
 
 Only the owner of the chat or the site administrator can ban indefinitely or unban a user who has been banned 
